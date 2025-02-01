@@ -23,10 +23,12 @@ export const MovementManagementPage = () => {
   const fetchMovements = useCallback(async () => {
     try {
       setLoading(true);
+      console.log('재고 이동 내역 조회 시작 - 필터:', filters);
       const response = await inventoryService.getMovements(filters);
+      console.log('재고 이동 내역 조회 결과:', response);
       setMovements(Array.isArray(response.results) ? response.results : []);
     } catch (err) {
-      console.error('Error fetching movements:', err);
+      console.error('재고 이동 내역 조회 중 오류:', err);
       setError('재고 이동 내역을 불러오는데 실패했습니다.');
       setMovements([]);
     } finally {
@@ -36,19 +38,23 @@ export const MovementManagementPage = () => {
 
   const fetchItems = useCallback(async () => {
     try {
+      console.log('품목 목록 조회 시작');
       const response = await inventoryService.getItems();
+      console.log('품목 목록 조회 결과:', response);
       setItems(Array.isArray(response.results) ? response.results : []);
     } catch (err) {
-      console.error('Error fetching items:', err);
+      console.error('품목 목록 조회 중 오류:', err);
     }
   }, []);
 
   useEffect(() => {
+    console.log('재고 이동 페이지 마운트 - 초기 데이터 로드');
     fetchMovements();
     fetchItems();
   }, [fetchMovements, fetchItems]);
 
   useEffect(() => {
+    console.log('필터 변경 감지 - 재고 이동 내역 새로고침:', filters);
     fetchMovements();
   }, [fetchMovements]);
 
@@ -58,7 +64,9 @@ export const MovementManagementPage = () => {
     setLoading(true);
 
     try {
+      console.log('재고 이동 등록 시작 - 폼 데이터:', formData);
       await inventoryService.createMovement(formData);
+      console.log('재고 이동 등록 완료');
       await fetchMovements();
       setIsModalOpen(false);
       setFormData({
@@ -69,21 +77,17 @@ export const MovementManagementPage = () => {
         notes: ''
       });
     } catch (err) {
+      console.error('재고 이동 등록 중 오류:', err);
       setError(err.response?.data?.message || '재고 이동 처리 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
   };
 
-  const getMovementTypeText = (type) => {
-    switch (type) {
-      case 'in':
-        return '입고';
-      case 'out':
-        return '출고';
-      default:
-        return type;
-    }
+  const getMovementType = (quantity) => {
+    const type = quantity > 0 ? '입고' : '출고';
+    console.log('이동 유형 계산:', { quantity, type });
+    return type;
   };
 
   return (
@@ -178,6 +182,7 @@ export const MovementManagementPage = () => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 메모
               </th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">처리자</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -201,14 +206,10 @@ export const MovementManagementPage = () => {
                   </td>
                   <td className="px-6 py-4">{movement.item_name}</td>
                   <td className="px-6 py-4">
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        movement.movement_type === 'in'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}
-                    >
-                      {getMovementTypeText(movement.movement_type)}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      movement.quantity > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {getMovementType(movement.quantity)}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
@@ -216,6 +217,7 @@ export const MovementManagementPage = () => {
                   </td>
                   <td className="px-6 py-4">{movement.reference_number}</td>
                   <td className="px-6 py-4">{movement.notes}</td>
+                  <td className="px-6 py-4 text-center">{movement.employee_name || '-'}</td>
                 </tr>
               ))
             )}

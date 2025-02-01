@@ -303,6 +303,26 @@ export const inventoryService = {
     return response.data;
   },
 
+  updateOrderStatus: async (id, status) => {
+    try {
+      const response = await axios.post(`/inventory/orders/${id}/${status}/`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error('주문 상태 변경 중 오류 발생:', error);
+      throw error;
+    }
+  },
+
+  orderPurchase: async (id) => {
+    try {
+      const response = await axios.post(`/inventory/orders/${id}/order/`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error('발주 처리 중 오류 발생:', error);
+      throw error;
+    }
+  },
+
   approveOrder: async (id) => {
     const response = await axios.post(`/inventory/orders/${id}/approve/`);
     return response.data;
@@ -314,7 +334,22 @@ export const inventoryService = {
   },
 
   cancelOrder: async (id) => {
-    const response = await axios.post(`/inventory/orders/${id}/cancel/`);
-    return response.data;
+    try {
+      const response = await axios.post(`/inventory/orders/${id}/cancel/`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error('주문 취소 중 오류 발생:', error);
+      throw error;
+    }
+  },
+
+  deleteOrder: async (id) => {
+    try {
+      await axios.delete(`/inventory/orders/${id}/`);
+      return { success: true };
+    } catch (error) {
+      console.error('주문 삭제 중 오류 발생:', error);
+      throw error;
+    }
   }
 };
