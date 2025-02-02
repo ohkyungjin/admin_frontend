@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { Table, Button, Modal, Form, Input, message, Space, Popconfirm, InputNumber, Card } from 'antd';
 import {
   getPremiumLines,
   createPremiumLine,
   updatePremiumLine,
   deletePremiumLine
 } from '../../services/funeralService';
-import { Table, Button, Modal, Form, Input, message, Space, Popconfirm } from 'antd';
 
 export const PremiumLineManagementPage = () => {
   const [premiumLines, setPremiumLines] = useState([]);
@@ -18,9 +18,16 @@ export const PremiumLineManagementPage = () => {
     try {
       setLoading(true);
       const response = await getPremiumLines();
-      setPremiumLines(response.data);
+      const linesData = response?.data?.results;
+      if (Array.isArray(linesData)) {
+        setPremiumLines(linesData);
+      } else {
+        setPremiumLines([]);
+      }
     } catch (error) {
+      console.error('프리미엄 라인 조회 오류:', error);
       message.error('프리미엄 라인 목록을 불러오는데 실패했습니다.');
+      setPremiumLines([]);
     } finally {
       setLoading(false);
     }
@@ -38,6 +45,7 @@ export const PremiumLineManagementPage = () => {
       form.resetFields();
       fetchPremiumLines();
     } catch (error) {
+      console.error('프리미엄 라인 생성 오류:', error);
       message.error('프리미엄 라인 생성에 실패했습니다.');
     }
   };
@@ -51,6 +59,7 @@ export const PremiumLineManagementPage = () => {
       form.resetFields();
       fetchPremiumLines();
     } catch (error) {
+      console.error('프리미엄 라인 수정 오류:', error);
       message.error('프리미엄 라인 수정에 실패했습니다.');
     }
   };
@@ -61,6 +70,7 @@ export const PremiumLineManagementPage = () => {
       message.success('프리미엄 라인이 삭제되었습니다.');
       fetchPremiumLines();
     } catch (error) {
+      console.error('프리미엄 라인 삭제 오류:', error);
       message.error('프리미엄 라인 삭제에 실패했습니다.');
     }
   };
@@ -80,13 +90,7 @@ export const PremiumLineManagementPage = () => {
       title: '가격',
       dataIndex: 'price',
       key: 'price',
-      render: (price) => `₩${price.toLocaleString()}`,
-    },
-    {
-      title: '포함 품목',
-      dataIndex: 'items',
-      key: 'items',
-      render: (items) => items?.map(item => item.name).join(', '),
+      render: (price) => price != null ? `₩${price.toLocaleString()}` : '-',
     },
     {
       title: '작업',
@@ -94,6 +98,8 @@ export const PremiumLineManagementPage = () => {
       render: (_, record) => (
         <Space>
           <Button
+            type="primary"
+            className="!text-blue-800 !border-blue-800 hover:!text-blue-900 hover:!border-blue-900"
             onClick={() => {
               setEditingLine(record);
               form.setFieldsValue(record);
@@ -107,8 +113,20 @@ export const PremiumLineManagementPage = () => {
             onConfirm={() => handleDelete(record.id)}
             okText="예"
             cancelText="아니오"
+            okButtonProps={{ 
+              className: "!bg-blue-800 !border-blue-800 hover:!bg-blue-900 hover:!border-blue-900 !text-white" 
+            }}
+            cancelButtonProps={{ 
+              className: "!text-blue-800 !border-blue-800 hover:!text-blue-900 hover:!border-blue-900" 
+            }}
           >
-            <Button danger>삭제</Button>
+            <Button 
+              danger 
+              type="primary" 
+              className="!bg-red-500 !border-red-500 hover:!bg-red-600 hover:!border-red-600 !text-white"
+            >
+              삭제
+            </Button>
           </Popconfirm>
         </Space>
       ),
@@ -116,80 +134,125 @@ export const PremiumLineManagementPage = () => {
   ];
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between mb-4">
-        <h1 className="text-2xl font-bold">프리미엄 라인 관리</h1>
-        <Button
-          type="primary"
-          onClick={() => {
+    <div className="max-w-7xl mx-auto p-6">
+      <Card className="shadow-lg rounded-lg">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold text-blue-800">프리미엄 라인 관리</h1>
+          <Button
+            type="primary"
+            className="!bg-blue-800 !border-blue-800 hover:!bg-blue-900 hover:!border-blue-900 !text-white"
+            onClick={() => {
+              setEditingLine(null);
+              form.resetFields();
+              setModalVisible(true);
+            }}
+          >
+            새 프리미엄 라인 추가
+          </Button>
+        </div>
+
+        <Table
+          className="w-full"
+          columns={columns}
+          dataSource={premiumLines}
+          rowKey="id"
+          loading={loading}
+          components={{
+            header: {
+              cell: props => (
+                <th {...props} className="bg-gray-100 text-blue-800 font-medium" />
+              )
+            }
+          }}
+          locale={{
+            emptyText: '프리미엄 라인이 없습니다. 새로운 프리미엄 라인을 추가해주세요.'
+          }}
+          pagination={{
+            total: premiumLines.length,
+            pageSize: 10,
+            hideOnSinglePage: true,
+            showTotal: (total) => `총 ${total}개의 프리미엄 라인`
+          }}
+        />
+
+        <Modal
+          title={
+            <h2 className="text-2xl font-bold text-blue-800">
+              {editingLine ? '프리미엄 라인 수정' : '새 프리미엄 라인 추가'}
+            </h2>
+          }
+          open={modalVisible}
+          onCancel={() => {
+            setModalVisible(false);
             setEditingLine(null);
             form.resetFields();
-            setModalVisible(true);
           }}
+          footer={null}
+          width={800}
+          maskClosable={false}
+          className="max-w-2xl"
         >
-          새 프리미엄 라인 추가
-        </Button>
-      </div>
+          <Form
+            form={form}
+            onFinish={editingLine ? handleUpdate : handleCreate}
+            layout="vertical"
+            className="mt-4"
+          >
+            <Form.Item
+              name="name"
+              label="라인명"
+              rules={[{ required: true, message: '라인명을 입력해주세요' }]}
+              className="mb-4"
+            >
+              <Input className="w-full rounded-md" />
+            </Form.Item>
 
-      <Table
-        columns={columns}
-        dataSource={premiumLines}
-        rowKey="id"
-        loading={loading}
-      />
+            <Form.Item
+              name="description"
+              label="설명"
+              rules={[{ required: true, message: '설명을 입력해주세요' }]}
+              className="mb-4"
+            >
+              <Input.TextArea className="w-full rounded-md" rows={4} />
+            </Form.Item>
 
-      <Modal
-        title={editingLine ? '프리미엄 라인 수정' : '새 프리미엄 라인 추가'}
-        open={modalVisible}
-        onCancel={() => {
-          setModalVisible(false);
-          setEditingLine(null);
-          form.resetFields();
-        }}
-        footer={null}
-      >
-        <Form
-          form={form}
-          onFinish={editingLine ? handleUpdate : handleCreate}
-          layout="vertical"
-        >
-          <Form.Item
-            name="name"
-            label="라인명"
-            rules={[{ required: true, message: '라인명을 입력해주세요' }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="description"
-            label="설명"
-            rules={[{ required: true, message: '설명을 입력해주세요' }]}
-          >
-            <Input.TextArea />
-          </Form.Item>
-          <Form.Item
-            name="price"
-            label="가격"
-            rules={[{ required: true, message: '가격을 입력해주세요' }]}
-          >
-            <Input type="number" prefix="₩" />
-          </Form.Item>
-          <Form.Item className="text-right">
-            <Space>
-              <Button onClick={() => {
-                setModalVisible(false);
-                setEditingLine(null);
-                form.resetFields();
-              }}>
-                취소
-              </Button>
-              <Button type="primary" htmlType="submit">
-                {editingLine ? '수정' : '추가'}
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
+            <Form.Item
+              name="price"
+              label="가격"
+              rules={[{ required: true, message: '가격을 입력해주세요' }]}
+              className="mb-4"
+            >
+              <InputNumber
+                prefix="₩"
+                className="w-full"
+                formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+              />
+            </Form.Item>
+
+            <Form.Item className="flex justify-end mb-0">
+              <Space>
+                <Button
+                  className="!text-blue-800 !border-blue-800 hover:!text-blue-900 hover:!border-blue-900"
+                  onClick={() => {
+                    setModalVisible(false);
+                    setEditingLine(null);
+                    form.resetFields();
+                  }}
+                >
+                  취소
+                </Button>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  className="!bg-blue-800 !border-blue-800 hover:!bg-blue-900 hover:!border-blue-900 !text-white"
+                >
+                  {editingLine ? '수정' : '추가'}
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        </Modal>
+      </Card>
     </div>
   );
 };
