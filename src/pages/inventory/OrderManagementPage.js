@@ -728,6 +728,29 @@ export const OrderManagementPage = () => {
                           </div>
                         </li>
                       )}
+
+                      {/* 취소 */}
+                      {selectedOrderDetails.histories?.find(h => h.to_status === 'cancelled') && (
+                        <li>
+                          <div className="relative flex items-start">
+                            <div className="flex-shrink-0">
+                              <span className="h-8 w-8 rounded-full bg-red-500 flex items-center justify-center">
+                                <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" />
+                                </svg>
+                              </span>
+                            </div>
+                            <div className="ml-4 min-w-0 flex-1">
+                              <div className="text-sm font-medium text-gray-900">취소</div>
+                              <div className="mt-1 text-sm text-gray-500">
+                                <span className="font-medium">{selectedOrderDetails.histories.find(h => h.to_status === 'cancelled').changed_by_name}</span>
+                                <span className="mx-2">·</span>
+                                <span>{new Date(selectedOrderDetails.histories.find(h => h.to_status === 'cancelled').created_at).toLocaleString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </li>
+                      )}
                     </ul>
                   </div>
                 </div>
