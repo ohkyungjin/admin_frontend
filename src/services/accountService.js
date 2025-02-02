@@ -1,10 +1,4 @@
-import axios from 'axios';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
-
-// axios 기본 설정
-axios.defaults.baseURL = API_URL;
-axios.defaults.headers.common['Content-Type'] = 'application/json';
+import axios from './config/axiosConfig';
 
 // 토큰 관리 함수
 const tokenManager = {
@@ -23,74 +17,40 @@ const tokenManager = {
   getRefreshToken: () => localStorage.getItem('refresh_token')
 };
 
-// 요청 인터셉터 설정
-axios.interceptors.request.use(
-  (config) => {
-    const token = tokenManager.getAccessToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-// 응답 인터셉터 설정
-axios.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-
-    // 네트워크 오류 처리
-    if (!error.response) {
-      return Promise.reject(new Error('서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.'));
-    }
-
-    // 401 에러 처리 (토큰 만료)
-    if (error.response.status === 401 && !originalRequest._retry && originalRequest.url !== '/accounts/token/') {
-      originalRequest._retry = true;
-      
-      try {
-        const refreshToken = tokenManager.getRefreshToken();
-        if (!refreshToken) {
-          tokenManager.clearTokens();
-          return Promise.reject(new Error('로그인이 만료되었습니다. 다시 로그인해주세요.'));
-        }
-
-        const response = await accountService.refreshToken(refreshToken);
-        if (response.access) {
-          tokenManager.setTokens(response.access, null);
-          originalRequest.headers.Authorization = `Bearer ${response.access}`;
-          return axios(originalRequest);
-        }
-      } catch (refreshError) {
-        tokenManager.clearTokens();
-        return Promise.reject(new Error('세션이 만료되었습니다. 다시 로그인해주세요.'));
-      }
-    }
-
-    return Promise.reject(error);
-  }
-);
 
 // 비밀번호 정책 검증 함수
 const validatePassword = (password) => {
-  const minLength = 8;
-  const hasUpperCase = /[A-Z]/.test(password);
-  const hasLowerCase = /[a-z]/.test(password);
-  const hasNumbers = /\d/.test(password);
-  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+  const errors = [];
+  
+  if (password.length < 8) {
+    errors.push('비밀번호는 최소 8자 이상이어야 합니다.');
+  }
+  
+  if (!/[A-Z]/.test(password)) {
+    errors.push('비밀번호는 최소 1개의 대문자를 포함해야 합니다.');
+  }
+  
+  if (!/[a-z]/.test(password)) {
+    errors.push('비밀번호는 최소 1개의 소문자를 포함해야 합니다.');
+  }
+  
+  if (!/[0-9]/.test(password)) {
+    errors.push('비밀번호는 최소 1개의 숫자를 포함해야 합니다.');
+  }
+  
+  if (!/[!@#$%^&*]/.test(password)) {
+    errors.push('비밀번호는 최소 1개의 특수문자(!@#$%^&*)를 포함해야 합니다.');
+  }
+  
+  return errors;
+};
 
-  return (
-    password.length >= minLength &&
-    hasUpperCase &&
-    hasLowerCase &&
-    hasNumbers &&
-    hasSpecialChar
-  );
+const createErrorMessage = (error) => {
+  return error.response?.data?.message || '로그인에 실패했습니다.';
 };
 
 export const accountService = {
+  // 로그인
   login: async (credentials) => {
     try {
       // 이메일 형식 검증
@@ -150,84 +110,117 @@ export const accountService = {
     }
   },
 
-  refreshToken: async (refreshToken) => {
-    const response = await axios.post('/accounts/token/refresh/', {
-      refresh: refreshToken
-    });
-    return response.data;
+  // 토큰 갱신
+  async refreshToken(refreshToken) {
+    try {
+      const response = await axios.post('/accounts/token/refresh/', { refresh: refreshToken });
+      const { access } = response.data;
+      tokenManager.setTokens(access, null);
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: createErrorMessage(error)
+      };
+    }
   },
 
-  logout: async () => {
+  // 로그아웃
+  async logout() {
     try {
       await axios.post('/accounts/logout/');
-    } finally {
       tokenManager.clearTokens();
-    }
-  },
-
-  verifyToken: async (token) => {
-    const response = await axios.post(`/accounts/token/verify/`, {
-      token: token
-    });
-    return response.data;
-  },
-
-  verify2FA: async (method, token) => {
-    const response = await axios.post(`/accounts/2fa/verify/`, {
-      method, // 'sms' or 'email'
-      token
-    });
-    return response.data;
-  },
-
-  request2FACode: async (method) => {
-    const response = await axios.post(`/accounts/2fa/request/`, {
-      method // 'sms' or 'email'
-    });
-    return response.data;
-  },
-
-  getUsers: async () => {
-    try {
-      const response = await axios.get(`/accounts/users/`);
-      // 응답 데이터가 배열이 아닌 경우 처리
-      return Array.isArray(response.data) ? response.data : 
-             response.data.results ? response.data.results : [];
+      return { success: true };
     } catch (error) {
-      console.error('Error fetching users:', error);
-      throw error;
+      return { success: false, error: error.message };
     }
   },
 
-  getUser: async (id) => {
+  // 토큰 검증
+  async verifyToken(token) {
+    const response = await axios.post('/accounts/token/verify/', { token });
+    return response.data;
+  },
+
+  // 2단계 인증
+  async verify2FA(method, token) {
+    try {
+      const response = await axios.post(`/accounts/2fa/verify/${method}/`, { token });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.message };
+    }
+  },
+
+  // 2단계 인증 코드 요청
+  async request2FACode(method) {
+    const response = await axios.post(`/accounts/2fa/request/${method}/`);
+    return response.data;
+  },
+
+  // 사용자 목록 조회
+  async getUsers() {
+    try {
+      const response = await axios.get('/accounts/users/');
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || '사용자 목록을 불러오는데 실패했습니다.'
+      };
+    }
+  },
+
+  // 사용자 상세 조회
+  async getUser(id) {
     const response = await axios.get(`/accounts/users/${id}/`);
     return response.data;
   },
 
-  createUser: async (data) => {
-    const response = await axios.post(`/accounts/users/`, {
-      email: data.email,
-      password: data.password,
-      password_confirm: data.password_confirm,
-      name: data.name,
-      phone: data.phone,
-      department: data.department,
-      position: data.position,
-      auth_level: data.auth_level
-    });
-    return response.data;
+  // 사용자 생성
+  async createUser(data) {
+    try {
+      // 비밀번호 정책 검증
+      const passwordErrors = validatePassword(data.password);
+      if (passwordErrors.length > 0) {
+        return {
+          success: false,
+          error: passwordErrors.join('\n')
+        };
+      }
+
+      const response = await axios.post('/accounts/users/', data);
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || '사용자 생성에 실패했습니다.'
+      };
+    }
   },
 
-  updateUser: async (id, data) => {
+  // 사용자 정보 수정
+  async updateUser(id, data) {
     const response = await axios.put(`/accounts/users/${id}/`, data);
     return response.data;
   },
 
-  deleteUser: async (id) => {
+  // 사용자 삭제
+  async deleteUser(id) {
     await axios.delete(`/accounts/users/${id}/`);
   },
 
-  changePassword: async (id, data) => {
+  // 비밀번호 변경
+  async changePassword(id, data) {
     await axios.post(`/accounts/users/${id}/change-password/`, data);
   }
-}; 
+};

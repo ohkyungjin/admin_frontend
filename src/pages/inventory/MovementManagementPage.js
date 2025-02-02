@@ -17,14 +17,44 @@ export const MovementManagementPage = () => {
   const [filters, setFilters] = useState({
     item: '',
     movement_type: '',
-    search: ''
+    item_search: ''
   });
 
+  // 디바운스된 검색어 상태 추가
+  const [debouncedFilters, setDebouncedFilters] = useState(filters);
+
+  // 검색어 디바운스 처리
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedFilters(filters);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [filters]);
+
+  // 품목 목록 조회
+  const fetchItems = useCallback(async () => {
+    try {
+      console.log('품목 목록 조회 시작');
+      const response = await inventoryService.getItems({
+        search: debouncedFilters.item_search.trim()
+      });
+      console.log('품목 목록 조회 결과:', response);
+      setItems(Array.isArray(response.results) ? response.results : []);
+    } catch (err) {
+      console.error('품목 목록 조회 중 오류:', err);
+    }
+  }, [debouncedFilters.item_search]);
+
+  // 재고 이동 내역 조회
   const fetchMovements = useCallback(async () => {
     try {
       setLoading(true);
-      console.log('재고 이동 내역 조회 시작 - 필터:', filters);
-      const response = await inventoryService.getMovements(filters);
+      console.log('재고 이동 내역 조회 시작 - 필터:', debouncedFilters);
+      const response = await inventoryService.getMovements({
+        ...debouncedFilters,
+        item_search: debouncedFilters.item_search.trim()
+      });
       console.log('재고 이동 내역 조회 결과:', response);
       setMovements(Array.isArray(response.results) ? response.results : []);
     } catch (err) {
@@ -34,29 +64,39 @@ export const MovementManagementPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [debouncedFilters]);
 
-  const fetchItems = useCallback(async () => {
-    try {
-      console.log('품목 목록 조회 시작');
-      const response = await inventoryService.getItems();
-      console.log('품목 목록 조회 결과:', response);
-      setItems(Array.isArray(response.results) ? response.results : []);
-    } catch (err) {
-      console.error('품목 목록 조회 중 오류:', err);
-    }
-  }, []);
-
+  // 초기 데이터 로드
   useEffect(() => {
     console.log('재고 이동 페이지 마운트 - 초기 데이터 로드');
-    fetchMovements();
     fetchItems();
-  }, [fetchMovements, fetchItems]);
+    fetchMovements();
+  }, []); // 최초 마운트 시에만 실행
+
+  // 디바운스된 필터 변경 시 데이터 조회
+  useEffect(() => {
+    if (debouncedFilters.item_search) {
+      fetchItems();
+    }
+  }, [debouncedFilters.item_search, fetchItems]);
 
   useEffect(() => {
-    console.log('필터 변경 감지 - 재고 이동 내역 새로고침:', filters);
     fetchMovements();
-  }, [fetchMovements]);
+  }, [debouncedFilters, fetchMovements]);
+
+  // getMovementType 함수를 메모이제이션
+  const getMovementType = useCallback((quantity) => {
+    const type = quantity > 0 ? '입고' : '출고';
+    return type;
+  }, []);
+
+  // 필터 변경 핸들러
+  const handleFilterChange = (name, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -82,12 +122,6 @@ export const MovementManagementPage = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const getMovementType = (quantity) => {
-    const type = quantity > 0 ? '입고' : '출고';
-    console.log('이동 유형 계산:', { quantity, type });
-    return type;
   };
 
   return (
@@ -124,7 +158,7 @@ export const MovementManagementPage = () => {
             <label className="block text-sm mb-1">품목</label>
             <select
               value={filters.item}
-              onChange={(e) => setFilters(prev => ({ ...prev, item: e.target.value }))}
+              onChange={(e) => handleFilterChange('item', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
             >
               <option value="">전체</option>
@@ -139,7 +173,7 @@ export const MovementManagementPage = () => {
             <label className="block text-sm mb-1">이동 유형</label>
             <select
               value={filters.movement_type}
-              onChange={(e) => setFilters(prev => ({ ...prev, movement_type: e.target.value }))}
+              onChange={(e) => handleFilterChange('movement_type', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
             >
               <option value="">전체</option>
@@ -148,12 +182,12 @@ export const MovementManagementPage = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm mb-1">검색</label>
+            <label className="block text-sm mb-1">품목 검색</label>
             <input
               type="text"
-              value={filters.search}
-              onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-              placeholder="참조번호 또는 메모로 검색"
+              value={filters.item_search}
+              onChange={(e) => handleFilterChange('item_search', e.target.value)}
+              placeholder="품목명으로 검색"
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
             />
           </div>
@@ -182,7 +216,7 @@ export const MovementManagementPage = () => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 메모
               </th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">처리자</th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">입고처리자</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">

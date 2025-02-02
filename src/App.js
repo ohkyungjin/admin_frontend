@@ -1,4 +1,5 @@
 import React from 'react';
+import 'antd/dist/reset.css';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from './pages/auth/LoginPage';
 import { CreateAdminPage } from './pages/auth/CreateAdminPage';
@@ -10,6 +11,9 @@ import { ItemManagementPage } from './pages/inventory/ItemManagementPage';
 import { MovementManagementPage } from './pages/inventory/MovementManagementPage';
 import { OrderManagementPage } from './pages/inventory/OrderManagementPage';
 import { DashboardLayout } from './components/layout/DashboardLayout';
+import { PackageManagementPage } from './pages/funeral/PackageManagementPage';
+import { PremiumLineManagementPage } from './pages/funeral/PremiumLineManagementPage';
+import { AdditionalOptionsPage } from './pages/funeral/AdditionalOptionsPage';
 
 const PrivateRoute = ({ children }) => {
   const isAuthenticated = !!localStorage.getItem('access_token');
@@ -81,6 +85,30 @@ function App() {
           element={
             <PrivateRoute>
               <OrderManagementPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/funeral/packages"
+          element={
+            <PrivateRoute>
+              <PackageManagementPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/funeral/premium-lines"
+          element={
+            <PrivateRoute>
+              <PremiumLineManagementPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/funeral/additional-options"
+          element={
+            <PrivateRoute>
+              <AdditionalOptionsPage />
             </PrivateRoute>
           }
         />

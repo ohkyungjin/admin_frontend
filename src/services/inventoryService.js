@@ -1,24 +1,4 @@
-import axios from 'axios';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
-
-// axios 기본 설정
-axios.defaults.baseURL = API_URL;
-axios.defaults.headers.common['Content-Type'] = 'application/json';
-
-// 요청 인터셉터 설정
-axios.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+import axios from './config/axiosConfig';
 
 // 데이터 검증 함수
 const validateInventoryItem = (data, isUpdate = false) => {
@@ -50,113 +30,132 @@ const validateInventoryItem = (data, isUpdate = false) => {
   if (typeof data.maximum_stock !== 'number' || data.maximum_stock < 0) {
     errors.push('최대 재고는 0 이상의 숫자여야 합니다.');
   }
-  
-  if (data.minimum_stock > data.maximum_stock) {
-    errors.push('최소 재고는 최대 재고보다 작아야 합니다.');
+
+  if (data.maximum_stock <= data.minimum_stock) {
+    errors.push('최대 재고는 최소 재고보다 커야 합니다.');
   }
-  
+
   return errors;
 };
 
 // 에러 메시지 생성 함수
 const createErrorMessage = (error) => {
-  if (axios.isAxiosError(error)) {
-    const status = error.response?.status;
-    const detail = error.response?.data?.detail;
-
-    switch (status) {
-      case 400:
-        return '잘못된 요청입니다. 입력 값을 확인해주세요.';
-      case 401:
-        return '인증이 필요합니다.';
-      case 403:
-        return '접근 권한이 없습니다.';
-      case 404:
-        return '요청한 품목을 찾을 수 없습니다.';
-      case 409:
-        return '동일한 SKU 코드가 이미 존재합니다.';
-      case 500:
-        return '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
-      default:
-        return detail || '재고 관리 중 오류가 발생했습니다.';
-    }
+  if (!error.response) {
+    return '서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.';
   }
-  return '네트워크 오류가 발생했습니다.';
+
+  const status = error.response.status;
+  const data = error.response.data;
+
+  switch (status) {
+    case 400:
+      return data.message || '잘못된 요청입니다.';
+    case 401:
+      return '인증이 필요합니다.';
+    case 403:
+      return '접근 권한이 없습니다.';
+    case 404:
+      return '요청한 리소스를 찾을 수 없습니다.';
+    case 409:
+      return data.message || '데이터 충돌이 발생했습니다.';
+    case 500:
+      return '서버 오류가 발생했습니다.';
+    default:
+      return '알 수 없는 오류가 발생했습니다.';
+  }
 };
 
 export const inventoryService = {
   // 카테고리 관리
-  getCategories: async (params) => {
+  async getCategories(params) {
     try {
       const response = await axios.get('/inventory/categories/', { params });
       return response.data;
     } catch (error) {
-      throw new Error(createErrorMessage(error));
+      return {
+        success: false,
+        error: createErrorMessage(error)
+      };
     }
   },
 
-  createCategory: async (data) => {
+  async createCategory(data) {
     try {
       const response = await axios.post('/inventory/categories/', data);
       return response.data;
     } catch (error) {
-      throw new Error(createErrorMessage(error));
+      return {
+        success: false,
+        error: createErrorMessage(error)
+      };
     }
   },
 
-  updateCategory: async (id, data) => {
+  async updateCategory(id, data) {
     try {
       const response = await axios.put(`/inventory/categories/${id}/`, data);
       return response.data;
     } catch (error) {
-      throw new Error(createErrorMessage(error));
+      return {
+        success: false,
+        error: createErrorMessage(error)
+      };
     }
   },
 
-  deleteCategory: async (id) => {
+  async deleteCategory(id) {
     try {
       await axios.delete(`/inventory/categories/${id}/`);
     } catch (error) {
-      throw new Error(createErrorMessage(error));
+      return {
+        success: false,
+        error: createErrorMessage(error)
+      };
     }
   },
 
   // 공급업체 관리
-  getSuppliers: async (params) => {
+  async getSuppliers(params) {
     const response = await axios.get('/inventory/suppliers/', { params });
     return response.data;
   },
 
-  createSupplier: async (data) => {
+  async createSupplier(data) {
     const response = await axios.post('/inventory/suppliers/', data);
     return response.data;
   },
 
-  updateSupplier: async (id, data) => {
+  async updateSupplier(id, data) {
     const response = await axios.put(`/inventory/suppliers/${id}/`, data);
     return response.data;
   },
 
-  deleteSupplier: async (id) => {
+  async deleteSupplier(id) {
     await axios.delete(`/inventory/suppliers/${id}/`);
   },
 
   // 재고 품목 관리
-  getItems: async (params) => {
+  async getItems(params) {
     try {
       const response = await axios.get('/inventory/items/', { params });
       return response.data;
     } catch (error) {
-      throw new Error(createErrorMessage(error));
+      return {
+        success: false,
+        error: createErrorMessage(error)
+      };
     }
   },
 
-  getLowStockItems: async () => {
+  async getLowStockItems() {
     try {
       const response = await axios.get('/inventory/items/low-stock/');
       return response.data;
     } catch (error) {
-      throw new Error(createErrorMessage(error));
+      return {
+        success: false,
+        error: createErrorMessage(error)
+      };
     }
   },
 

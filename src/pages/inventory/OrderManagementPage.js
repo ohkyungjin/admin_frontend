@@ -46,10 +46,10 @@ export const OrderManagementPage = () => {
     try {
       setLoading(true);
       const response = await inventoryService.getOrders(filters);
-      setOrders(Array.isArray(response.results) ? response.results : []);
-    } catch (err) {
-      console.error('Error fetching orders:', err);
-      setError('구매 주문 목록을 불러오는데 실패했습니다.');
+      setOrders(response.results || []);
+    } catch (error) {
+      console.error('주문 목록 조회 중 오류:', error);
+      setError('주문 목록을 불러오는데 실패했습니다.');
       setOrders([]);
     } finally {
       setLoading(false);
@@ -77,38 +77,27 @@ export const OrderManagementPage = () => {
   // 주문 상세 정보 조회
   const handleViewDetails = async (order) => {
     try {
-      const response = await inventoryService.getOrders({
+      const orderDetails = await inventoryService.getOrders({
         id: order.id,
-        include_details: true
+        include_details: true,
+        include_histories: true
       });
       
-      if (response && response.results && response.results.length > 0) {
-        const orderDetails = response.results[0];
-        console.log('주문 상세 정보:', orderDetails); // 디버깅을 위한 로그 추가
-        
-        // status가 문자열인지 확인하고 소문자로 변환
-        if (orderDetails.status) {
-          orderDetails.status = orderDetails.status.toLowerCase();
-        }
-        
-        // status_display가 없는 경우 status 기반으로 표시
-        if (!orderDetails.status_display) {
-          const statusDisplayMap = {
-            draft: '임시저장',
-            pending: '승인대기',
-            approved: '승인완료',
-            ordered: '발주완료',
-            received: '입고완료',
-            cancelled: '취소'
-          };
-          orderDetails.status_display = statusDisplayMap[orderDetails.status] || orderDetails.status;
-        }
-        
-        setSelectedOrderDetails(orderDetails);
-        setIsDetailsModalOpen(true);
+      // 응답 데이터 구조 확인 및 처리
+      let orderDetailsData;
+      if (orderDetails && !Array.isArray(orderDetails)) {
+        orderDetailsData = orderDetails;  // 단일 객체로 온 경우
       } else {
         throw new Error('주문 정보를 찾을 수 없습니다.');
       }
+      
+      // status가 문자열인지 확인하고 소문자로 변환
+      if (orderDetailsData.status) {
+        orderDetailsData.status = orderDetailsData.status.toLowerCase();
+      }
+      
+      setSelectedOrderDetails(orderDetailsData);
+      setIsDetailsModalOpen(true);
     } catch (error) {
       console.error('주문 상세 정보 조회 중 오류 발생:', error);
       alert(error.message || '주문 상세 정보를 불러오는데 실패했습니다.');
@@ -117,174 +106,68 @@ export const OrderManagementPage = () => {
 
   // 주문 상태 변경 처리
   const handleOrderAction = async (orderId, action) => {
-    const actionMessages = {
-      pending: '주문을 대기 상태로 변경하시겠습니까?',
-      approve: '주문을 승인하시겠습니까?',
-      cancel: '주문을 취소하시겠습니까?',
-      receive: '물품 수령을 확인하시겠습니까?',
-      delete: '주문을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
-      order: '발주를 진행하시겠습니까?'
-    };
-
     try {
-      if (!window.confirm(actionMessages[action])) {
+      if (!orderId || !action) {
+        throw new Error('필수 파라미터가 누락되었습니다.');
+      }
+
+      // 상태 변경 전 사용자 확인
+      const confirmMessages = {
+        pending: '승인대기 상태로 변경하시겠습니까?',
+        approve: '주문을 승인하시겠습니까?',
+        order: '발주를 진행하시겠습니까?',
+        receive: '입고 처리하시겠습니까?',
+        cancel: '주문을 취소하시겠습니까?',
+        delete: '주문을 삭제하시겠습니까?'
+      };
+
+      if (!window.confirm(confirmMessages[action] || '상태를 변경하시겠습니까?')) {
         return;
       }
 
       setLoading(true);
-      let response;
-      
-      if (action === 'delete') {
-        response = await inventoryService.deleteOrder(orderId);
-        if (response && response.success) {
-          setIsDetailsModalOpen(false);
-          await fetchOrders();
-          alert('주문이 삭제되었습니다.');
-        }
-      } else {
-        // 각 액션별 API 엔드포인트 호출
-        try {
-          switch (action) {
-            case 'pending':
-              response = await inventoryService.updateOrderStatus(orderId, 'pending');
-              break;
-            case 'approve':
-              response = await inventoryService.updateOrderStatus(orderId, 'approve');
-              break;
-            case 'cancel':
-              response = await inventoryService.cancelOrder(orderId);
-              break;
-            case 'receive':
-              if (!window.confirm('입고 처리를 진행하시겠습니까?\n입고 처리 후에는 재고가 자동으로 증가됩니다.')) {
-                return;
-              }
-              try {
-                response = await inventoryService.updateOrderStatus(orderId, 'receive');
-                console.log('입고 처리 응답:', response);
-                
-                if (response && response.success) {
-                  alert('입고 처리가 완료되었습니다. 재고가 자동으로 증가되었습니다.');
-                } else {
-                  throw new Error('입고 처리 중 오류가 발생했습니다.');
-                }
-              } catch (error) {
-                console.error('입고 처리 중 오류:', error);
-                throw error;
-              }
-              break;
-            case 'order':
-              response = await inventoryService.orderPurchase(orderId);
-              break;
-            default:
-              throw new Error('지원하지 않는 액션입니다.');
-          }
-          
-          console.log('API 응답:', response);
-          
-          if (response && response.success) {
-            // 주문 상세 정보 업데이트
-            const updatedResponse = await inventoryService.getOrders({
-              id: orderId,
-              include_details: true
-            });
-            
-            if (updatedResponse && updatedResponse.results && updatedResponse.results.length > 0) {
-              const updatedOrder = updatedResponse.results[0];
-              console.log('업데이트된 주문 정보:', updatedOrder);
-              setSelectedOrderDetails(updatedOrder);
-            }
-            
-            await fetchOrders();
-            const actionText = 
-              action === 'pending' ? '승인대기' :
-              action === 'approve' ? '승인완료' :
-              action === 'cancel' ? '취소' :
-              action === 'receive' ? '입고완료' :
-              action === 'order' ? '발주완료' : '';
-            alert(`주문이 ${actionText} 상태로 변경되었습니다.`);
-          } else {
-            throw new Error('주문 상태 변경에 실패했습니다.');
-          }
-        } catch (error) {
-          console.error('주문 처리 중 오류 발생:', error);
-          throw error;
-        }
-      }
+
+      // API 호출
+      await inventoryService.updateOrderStatus(orderId, action);
+
+      // 성공 메시지
+      const successMessages = {
+        pending: '승인대기 상태로 변경되었습니다.',
+        approve: '주문이 승인되었습니다.',
+        order: '발주가 완료되었습니다.',
+        receive: '입고 처리가 완료되었습니다.',
+        cancel: '주문이 취소되었습니다.',
+        delete: '주문이 삭제되었습니다.'
+      };
+
+      alert(successMessages[action] || '상태가 변경되었습니다.');
+
+      // 모달 닫고 목록 새로고침
+      setIsDetailsModalOpen(false);
+      fetchOrders();
     } catch (error) {
-      console.error('주문 처리 중 오류 발생:', error);
-      alert(error.message || '처리 중 오류가 발생했습니다. 다시 시도해주세요.');
+      console.error('주문 상태 변경 중 오류:', error);
+      alert(error.message || '상태 변경에 실패했습니다.');
     } finally {
       setLoading(false);
     }
   };
 
-  // 상태별 스타일 클래스
+  // 상태별 배지 스타일 클래스
   const getStatusBadgeClass = (status) => {
-    const statusClasses = {
-      draft: 'bg-gray-100 text-gray-800',
-      pending: 'bg-yellow-100 text-yellow-800',
-      approved: 'bg-blue-100 text-blue-800',
-      ordered: 'bg-green-100 text-green-800',
-      received: 'bg-green-100 text-green-800',
-      cancelled: 'bg-red-100 text-red-800'
-    };
-    return statusClasses[status?.toLowerCase()] || 'bg-gray-100 text-gray-800';
-  };
-
-  // 납기일 관련 함수들
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    try {
-      return new Date(dateString).toLocaleDateString('ko-KR', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      }).replace(/\./g, '-').slice(0, -1);
-    } catch (error) {
-      console.error('날짜 형식 변환 에러:', error);
-      return '-';
-    }
-  };
-
-  const getDeliveryDateStatus = (dateString) => {
-    if (!dateString) return '(날짜 없음)';
-    try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const deliveryDate = new Date(dateString);
-      deliveryDate.setHours(0, 0, 0, 0);
-      
-      const diffTime = deliveryDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
-      if (isNaN(diffDays)) return '(유효하지 않은 날짜)';
-      if (diffDays < 0) return `(${Math.abs(diffDays)}일 지남)`;
-      if (diffDays <= 3) return `(${diffDays}일 남음)`;
-      return `(${diffDays}일 남음)`;
-    } catch (error) {
-      console.error('날짜 계산 에러:', error);
-      return '(날짜 확인 필요)';
-    }
-  };
-
-  const getDeliveryDateClass = (dateString) => {
-    if (!dateString) return 'text-gray-500';
-    try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const deliveryDate = new Date(dateString);
-      deliveryDate.setHours(0, 0, 0, 0);
-      
-      const diffTime = deliveryDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
-      if (isNaN(diffDays)) return 'text-gray-500';
-      if (diffDays < 0) return 'text-red-600 font-semibold';
-      if (diffDays <= 3) return 'text-yellow-600 font-semibold';
-      return 'text-gray-600';
-    } catch (error) {
-      console.error('날짜 스타일 에러:', error);
-      return 'text-gray-500';
+    switch (status?.toLowerCase()) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800'; // 승인대기: 노란색
+      case 'approved':
+        return 'bg-blue-100 text-blue-800';     // 승인완료: 파란색
+      case 'ordered':
+        return 'bg-indigo-100 text-indigo-800'; // 발주완료: 남색
+      case 'received':
+        return 'bg-green-100 text-green-800';   // 입고완료: 초록색
+      case 'canceled':
+        return 'bg-red-100 text-red-800';       // 취소: 빨간색
+      default:
+        return 'bg-gray-100 text-gray-800';     // 기본: 회색
     }
   };
 
@@ -344,8 +227,6 @@ export const OrderManagementPage = () => {
 
   // 주문 품목 업데이트
   const updateOrderItem = (index, field, value) => {
-    console.log('품목 업데이트 시작:', { index, field, value });
-    console.log('현재 items 목록:', items);
     
     setFormData(prev => {
       const updatedItems = prev.items.map((item, i) => {
@@ -355,7 +236,6 @@ export const OrderManagementPage = () => {
           if (field === 'item') {
             // value를 숫자로 변환하여 비교
             const selectedItem = items.find(i => i.id === Number(value));
-            console.log('선택된 품목 정보:', selectedItem);
             
             if (selectedItem) {
               updatedItem.item_name = selectedItem.name;
@@ -365,7 +245,6 @@ export const OrderManagementPage = () => {
               if (updatedItem.quantity > 0) {
                 updatedItem.total_price = updatedItem.quantity * updatedItem.unit_price;
               }
-              console.log('업데이트된 품목 정보:', updatedItem);
             } else {
               console.log('해당 ID의 품목을 찾을 수 없음:', value);
             }
@@ -377,7 +256,6 @@ export const OrderManagementPage = () => {
             updatedItem.quantity = quantity;
             updatedItem.unit_price = unit_price;
             updatedItem.total_price = quantity * unit_price;
-            console.log('수량/단가 변경 후 품목 정보:', updatedItem);
           }
           
           return updatedItem;
@@ -387,7 +265,6 @@ export const OrderManagementPage = () => {
 
       // 총 금액 계산
       const total_amount = updatedItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
-      console.log('총 금액 계산:', total_amount);
 
       return {
         ...prev,
@@ -425,8 +302,6 @@ export const OrderManagementPage = () => {
     e.preventDefault();
     setError('');
     
-    console.log('폼 제출 시작 - 폼 데이터:', formData);
-    
     const errors = validateFormData();
     if (errors.length > 0) {
       console.log('유효성 검사 실패:', errors);
@@ -447,14 +322,10 @@ export const OrderManagementPage = () => {
           total_price: Number(item.total_price)
         }))
       };
-      
-      console.log('서버로 전송할 데이터:', submitData);
 
       if (selectedOrder) {
-        console.log('주문 수정 요청:', selectedOrder.id);
         await inventoryService.updateOrder(selectedOrder.id, submitData);
       } else {
-        console.log('새 주문 생성 요청');
         await inventoryService.createOrder(submitData);
       }
       
@@ -564,58 +435,61 @@ export const OrderManagementPage = () => {
       {/* 주문 목록 테이블 */}
       <div className="bg-white shadow-sm rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="min-w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">주문번호</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">공급업체</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">예상 납기일</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">총액</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">작업</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">주문일자</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">품목명</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">공급업체</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">총 금액</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">작성자</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-4 text-center">
+                  <td colSpan="7" className="px-6 py-4 text-center">
                     로딩중...
                   </td>
                 </tr>
               ) : orders.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-4 text-center">
+                  <td colSpan="7" className="px-6 py-4 text-center">
                     등록된 구매 주문이 없습니다.
                   </td>
                 </tr>
               ) : (
                 orders.map((order) => (
-                  <tr key={order.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">{order.order_number}</td>
-                    <td className="px-6 py-4">{order.supplier_name}</td>
-                    <td className="px-6 py-4">
+                  <tr key={order.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {order.order_date}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {order.items_info.map(item => item.name).join(', ')}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {order.supplier_name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                      {Number(order.total_amount).toLocaleString()}원
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(order.status)}`}>
                         {order.status_display}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={getDeliveryDateClass(order.expected_date)}>
-                        {formatDate(order.expected_date)}
-                        <span className="ml-2 text-sm">
-                          {getDeliveryDateStatus(order.expected_date)}
-                        </span>
-                      </span>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                      {order.created_by_name}
                     </td>
-                    <td className="px-6 py-4">{Number(order.total_amount).toLocaleString()}원</td>
-                    <td className="px-6 py-4">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleViewDetails(order)}
-                          className="px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
-                        >
-                          상세보기
-                        </button>
-                      </div>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-center">
+                      <button
+                        onClick={() => handleViewDetails(order)}
+                        className="text-blue-600 hover:text-blue-900 mr-4"
+                      >
+                        상세
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -641,66 +515,56 @@ export const OrderManagementPage = () => {
 
             <div className="space-y-6">
               {/* 주문 기본 정보 */}
-              <div className="grid grid-cols-2 gap-6">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">주문 정보</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">주문번호</span>
-                      <span className="font-medium">{selectedOrderDetails.order_number}</span>
+              <div className="space-y-6 mb-6">
+                {/* 주문 요약 정보 */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">주문 정보</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">주문 번호</p>
+                          <p className="mt-1 text-sm text-gray-900">{selectedOrderDetails.order_number}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">공급업체</p>
+                          <p className="mt-1 text-sm text-gray-900">{selectedOrderDetails.supplier.name}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">주문 일자</p>
+                          <p className="mt-1 text-sm text-gray-900">{selectedOrderDetails.order_date}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">입고 예정일</p>
+                          <p className="mt-1 text-sm text-gray-900">{selectedOrderDetails.expected_date}</p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">주문일자</span>
-                      <span className="font-medium">{formatDate(selectedOrderDetails.created_at)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">주문자</span>
-                      <span className="font-medium">{selectedOrderDetails.created_by_name || '-'}</span>
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">상태 정보</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">현재 상태</p>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(selectedOrderDetails.status)}`}>
+                            {selectedOrderDetails.status_display}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">총 금액</p>
+                          <p className="mt-1 text-sm text-gray-900 font-semibold">{Number(selectedOrderDetails.total_amount).toLocaleString()}원</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">비고</p>
+                          <p className="mt-1 text-sm text-gray-900">{selectedOrderDetails.notes || '-'}</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">공급업체 정보</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">업체명</span>
-                      <span className="font-medium">{selectedOrderDetails.supplier_name}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">담당자</span>
-                      <span className="font-medium">{selectedOrderDetails.supplier_contact || '-'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">연락처</span>
-                      <span className="font-medium">{selectedOrderDetails.supplier_phone || '-'}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 상태 관리 섹션 */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500 mb-2">주문 상태</h3>
-                    <div className="flex items-center space-x-2">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(selectedOrderDetails.status)}`}>
-                        {selectedOrderDetails.status_display || selectedOrderDetails.status}
-                      </span>
-                      <span className="text-sm text-gray-500">
-                        {selectedOrderDetails.status_display === '임시저장' && '임시저장 상태입니다. 승인대기 상태로 변경하여 처리를 시작하세요.'}
-                        {selectedOrderDetails.status_display === '승인대기' && '승인대기 상태입니다. 주문을 검토하고 승인하거나 취소할 수 있습니다.'}
-                        {selectedOrderDetails.status_display === '승인완료' && '승인완료 상태입니다. 발주를 진행할 수 있습니다.'}
-                        {selectedOrderDetails.status_display === '발주완료' && '발주완료 상태입니다. 입고 처리를 진행할 수 있습니다.'}
-                        {selectedOrderDetails.status_display === '입고완료' && '입고완료된 주문입니다.'}
-                        {selectedOrderDetails.status_display === '취소' && '취소된 주문입니다.'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
+                  {/* 상태 관리 버튼 */}
+                  <div className="flex justify-end space-x-2 mt-6">
                     {/* 임시저장 상태 */}
-                    {selectedOrderDetails.status_display === '임시저장' && (
+                    {selectedOrderDetails.status === 'draft' && (
                       <>
                         <button
                           onClick={() => handleOrderAction(selectedOrderDetails.id, 'pending')}
@@ -717,7 +581,7 @@ export const OrderManagementPage = () => {
                       </>
                     )}
                     {/* 승인대기 상태 */}
-                    {selectedOrderDetails.status_display === '승인대기' && (
+                    {selectedOrderDetails.status === 'pending' && (
                       <>
                         <button
                           onClick={() => handleOrderAction(selectedOrderDetails.id, 'approve')}
@@ -740,7 +604,7 @@ export const OrderManagementPage = () => {
                       </>
                     )}
                     {/* 승인완료 상태 */}
-                    {selectedOrderDetails.status_display === '승인완료' && (
+                    {selectedOrderDetails.status === 'approved' && (
                       <button
                         onClick={() => handleOrderAction(selectedOrderDetails.id, 'order')}
                         className="px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200"
@@ -749,7 +613,7 @@ export const OrderManagementPage = () => {
                       </button>
                     )}
                     {/* 발주완료 상태 */}
-                    {selectedOrderDetails.status_display === '발주완료' && (
+                    {selectedOrderDetails.status === 'ordered' && (
                       <button
                         onClick={() => handleOrderAction(selectedOrderDetails.id, 'receive')}
                         className="px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200"
@@ -758,7 +622,7 @@ export const OrderManagementPage = () => {
                       </button>
                     )}
                     {/* 취소 상태 */}
-                    {selectedOrderDetails.status_display === '취소' && (
+                    {selectedOrderDetails.status === 'cancelled' && (
                       <button
                         onClick={() => handleOrderAction(selectedOrderDetails.id, 'delete')}
                         className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
@@ -768,73 +632,142 @@ export const OrderManagementPage = () => {
                     )}
                   </div>
                 </div>
-              </div>
 
-              {/* 납기일 정보 */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">납기 정보</h3>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-sm text-gray-600">예상 납기일:</span>
-                    <span className={`ml-2 ${getDeliveryDateClass(selectedOrderDetails.expected_date)}`}>
-                      {formatDate(selectedOrderDetails.expected_date)}
-                    </span>
+                {/* 처리 이력 */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">처리 이력</h3>
+                  <div className="flow-root">
+                    <ul className="relative">
+                      {/* 작성 */}
+                      <li className="mb-6">
+                        <div className="relative flex items-start">
+                          <div className="flex-shrink-0">
+                            <span className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center">
+                              <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                                <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" />
+                              </svg>
+                            </span>
+                          </div>
+                          <div className="ml-4 min-w-0 flex-1">
+                            <div className="text-sm font-medium text-gray-900">작성</div>
+                            <div className="mt-1 text-sm text-gray-500">
+                              <span className="font-medium">{selectedOrderDetails.created_by_name}</span>
+                              <span className="mx-2">·</span>
+                              <span>{selectedOrderDetails.created_at && new Date(selectedOrderDetails.created_at).toLocaleString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </li>
+
+                      {/* 승인 */}
+                      {selectedOrderDetails.histories?.find(h => h.to_status === 'approved') && (
+                        <li className="mb-6">
+                          <div className="relative flex items-start">
+                            <div className="flex-shrink-0">
+                              <span className="h-8 w-8 rounded-full bg-green-500 flex items-center justify-center">
+                                <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" />
+                                </svg>
+                              </span>
+                            </div>
+                            <div className="ml-4 min-w-0 flex-1">
+                              <div className="text-sm font-medium text-gray-900">승인</div>
+                              <div className="mt-1 text-sm text-gray-500">
+                                <span className="font-medium">{selectedOrderDetails.histories.find(h => h.to_status === 'approved').changed_by_name}</span>
+                                <span className="mx-2">·</span>
+                                <span>{new Date(selectedOrderDetails.histories.find(h => h.to_status === 'approved').created_at).toLocaleString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </li>
+                      )}
+
+                      {/* 발주 */}
+                      {selectedOrderDetails.histories?.find(h => h.to_status === 'ordered') && (
+                        <li className="mb-6">
+                          <div className="relative flex items-start">
+                            <div className="flex-shrink-0">
+                              <span className="h-8 w-8 rounded-full bg-purple-500 flex items-center justify-center">
+                                <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                  <path d="M8 5a1 1 0 100 2h5.586l-1.293 1.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 5H8zM12 15a1 1 0 100-2H6.414l1.293-1.293a1 1 0 10-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L6.414 15H12z" />
+                                </svg>
+                              </span>
+                            </div>
+                            <div className="ml-4 min-w-0 flex-1">
+                              <div className="text-sm font-medium text-gray-900">발주</div>
+                              <div className="mt-1 text-sm text-gray-500">
+                                <span className="font-medium">{selectedOrderDetails.histories.find(h => h.to_status === 'ordered').changed_by_name}</span>
+                                <span className="mx-2">·</span>
+                                <span>{new Date(selectedOrderDetails.histories.find(h => h.to_status === 'ordered').created_at).toLocaleString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </li>
+                      )}
+
+                      {/* 입고 */}
+                      {selectedOrderDetails.histories?.find(h => h.to_status === 'received') && (
+                        <li>
+                          <div className="relative flex items-start">
+                            <div className="flex-shrink-0">
+                              <span className="h-8 w-8 rounded-full bg-indigo-500 flex items-center justify-center">
+                                <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                  <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+                                </svg>
+                              </span>
+                            </div>
+                            <div className="ml-4 min-w-0 flex-1">
+                              <div className="text-sm font-medium text-gray-900">입고</div>
+                              <div className="mt-1 text-sm text-gray-500">
+                                <span className="font-medium">{selectedOrderDetails.histories.find(h => h.to_status === 'received').changed_by_name}</span>
+                                <span className="mx-2">·</span>
+                                <span>{new Date(selectedOrderDetails.histories.find(h => h.to_status === 'received').created_at).toLocaleString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </li>
+                      )}
+                    </ul>
                   </div>
-                  <span className="text-sm">
-                    {getDeliveryDateStatus(selectedOrderDetails.expected_date)}
-                  </span>
                 </div>
-              </div>
 
-              {/* 주문 품목 테이블 */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-2">주문 품목</h3>
-                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">품목코드</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">품목명</th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">수량</th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">단가</th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">금액</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {selectedOrderDetails.items?.map((item, index) => (
-                        <tr key={index}>
-                          <td className="px-6 py-4 text-sm text-gray-600">{item.item_code || '-'}</td>
-                          <td className="px-6 py-4">{item.name || '-'}</td>
-                          <td className="px-6 py-4 text-right">{item.quantity.toLocaleString()}</td>
-                          <td className="px-6 py-4 text-right">{Number(item.unit_price).toLocaleString()}원</td>
-                          <td className="px-6 py-4 text-right">{Number(item.quantity * item.unit_price).toLocaleString()}원</td>
+                {/* 주문 품목 */}
+                <div className="bg-white rounded-lg shadow overflow-hidden">
+                  <div className="px-6 py-5 border-b border-gray-200">
+                    <h3 className="text-lg font-medium text-gray-900">주문 품목</h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">품목코드</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">품목명</th>
+                          <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">주문수량</th>
+                          <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">단가</th>
+                          <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">금액</th>
+                          <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">실제 입고수량</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">비고</th>
                         </tr>
-                      ))}
-                      <tr className="bg-gray-50 font-medium">
-                        <td colSpan="4" className="px-6 py-4 text-right">총액</td>
-                        <td className="px-6 py-4 text-right">{Number(selectedOrderDetails.total_amount).toLocaleString()}원</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {selectedOrderDetails.items?.map((item, index) => (
+                          <tr key={index}>
+                            <td className="px-6 py-4 text-sm text-gray-500">{item.item_code}</td>
+                            <td className="px-6 py-4 text-sm text-gray-900">{item.item_name}</td>
+                            <td className="px-6 py-4 text-sm text-gray-900 text-right">{item.quantity.toLocaleString()}</td>
+                            <td className="px-6 py-4 text-sm text-gray-900 text-right">{Number(item.unit_price).toLocaleString()}원</td>
+                            <td className="px-6 py-4 text-sm text-gray-900 text-right">{Number(item.total_price).toLocaleString()}원</td>
+                            <td className="px-6 py-4 text-sm text-gray-900 text-right">
+                              {selectedOrderDetails.status === 'received' ? item.quantity.toLocaleString() : '0'}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-500">{item.notes || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-
-              {/* 메모 섹션 */}
-              {selectedOrderDetails.notes && (
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">메모</h3>
-                  <p className="text-sm text-gray-600 whitespace-pre-line">{selectedOrderDetails.notes}</p>
-                </div>
-              )}
-
-              {/* 하단 버튼 */}
-              <div className="flex justify-end space-x-2 mt-6">
-                <button
-                  onClick={() => setIsDetailsModalOpen(false)}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
-                >
-                  닫기
-                </button>
               </div>
             </div>
           </div>

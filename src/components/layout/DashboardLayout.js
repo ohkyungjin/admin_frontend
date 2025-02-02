@@ -7,6 +7,7 @@ export const DashboardLayout = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
+  const [isFuneralOpen, setIsFuneralOpen] = useState(false);
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
@@ -29,7 +30,15 @@ export const DashboardLayout = ({ children }) => {
         { name: '구매 주문 관리', path: '/inventory/orders' },
       ],
     },
-    { name: '장례 서비스', path: '/services', icon: '🕊️' },
+    {
+      name: '장례 서비스',
+      icon: '🕊️',
+      subItems: [
+        { name: '패키지 관리', path: '/funeral/packages' },
+        { name: '프리미엄 라인', path: '/funeral/premium-lines' },
+        { name: '추가 옵션', path: '/funeral/additional-options' },
+      ],
+    },
     { name: '추모 관리', path: '/memorials', icon: '💐' },
     { name: '계정 관리', path: '/account/management', icon: '👥' },
     { name: '시스템 설정', path: '/settings', icon: '⚙️' },
@@ -90,18 +99,29 @@ export const DashboardLayout = ({ children }) => {
                 {item.subItems ? (
                   <div>
                     <button
-                      onClick={() => setIsInventoryOpen(!isInventoryOpen)}
+                      onClick={() => {
+                        if (item.name === '재고 관리') setIsInventoryOpen(!isInventoryOpen);
+                        if (item.name === '장례 서비스') setIsFuneralOpen(!isFuneralOpen);
+                      }}
                       className={`flex items-center w-full px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md ${
-                        location.pathname.startsWith('/inventory') ? 'bg-gray-100' : ''
+                        (item.name === '재고 관리' && location.pathname.startsWith('/inventory')) ||
+                        (item.name === '장례 서비스' && location.pathname.startsWith('/funeral')) ||
+                        (item.name === '추모 관리' && location.pathname.startsWith('/memorials'))
+                          ? 'bg-gray-100'
+                          : ''
                       }`}
                     >
                       <span className="mr-3">{item.icon}</span>
                       <span>{item.name}</span>
                       <span className="ml-auto">
-                        {isInventoryOpen ? '▼' : '▲'}
+                        {(item.name === '재고 관리' && isInventoryOpen) ||
+                        (item.name === '장례 서비스' && isFuneralOpen)
+                          ? '▼'
+                          : '▲'}
                       </span>
                     </button>
-                    {isInventoryOpen && (
+                    {((item.name === '재고 관리' && isInventoryOpen) ||
+                      (item.name === '장례 서비스' && isFuneralOpen)) && (
                       <div className="ml-8 space-y-1 mt-1">
                         {item.subItems.map((subItem) => (
                           <button
