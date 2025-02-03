@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { inventoryService } from '../../services/inventoryService';
-import { Card, Button, Table } from 'antd';
+import { Card, Button, Table, message } from 'antd';
 
 export const OrderManagementPage = () => {
   const [orders, setOrders] = useState([]);
@@ -106,49 +106,50 @@ export const OrderManagementPage = () => {
   };
 
   // 주문 상태 변경 처리
-  const handleOrderAction = async (orderId, action) => {
+  const handleStatusChange = async (orderId, newStatus) => {
+    const statusMessages = {
+      pending: '승인대기 상태로 변경하시겠습니까?',
+      approve: '주문을 승인하시겠습니까?',
+      order: '발주를 진행하시겠습니까?',
+      receive: '입고 처리하시겠습니까?',
+      cancel: '주문을 취소하시겠습니까?',
+      delete: '주문을 삭제하시겠습니까?'
+    };
+
+    const successMessages = {
+      pending: '승인대기 상태로 변경되었습니다.',
+      approve: '주문이 승인되었습니다.',
+      order: '발주가 완료되었습니다.',
+      receive: '입고 처리가 완료되었습니다.',
+      cancel: '주문이 취소되었습니다.',
+      delete: '주문이 삭제되었습니다.'
+    };
+
+    if (!window.confirm(statusMessages[newStatus] || '상태를 변경하시겠습니까?')) {
+      return;
+    }
+
     try {
-      if (!orderId || !action) {
-        throw new Error('필수 파라미터가 누락되었습니다.');
-      }
-
-      // 상태 변경 전 사용자 확인
-      const confirmMessages = {
-        pending: '승인대기 상태로 변경하시겠습니까?',
-        approve: '주문을 승인하시겠습니까?',
-        order: '발주를 진행하시겠습니까?',
-        receive: '입고 처리하시겠습니까?',
-        cancel: '주문을 취소하시겠습니까?',
-        delete: '주문을 삭제하시겠습니까?'
-      };
-
-      if (!window.confirm(confirmMessages[action] || '상태를 변경하시겠습니까?')) {
-        return;
-      }
-
       setLoading(true);
-
-      // API 호출
-      await inventoryService.updateOrderStatus(orderId, action);
-
-      // 성공 메시지
-      const successMessages = {
-        pending: '승인대기 상태로 변경되었습니다.',
-        approve: '주문이 승인되었습니다.',
-        order: '발주가 완료되었습니다.',
-        receive: '입고 처리가 완료되었습니다.',
-        cancel: '주문이 취소되었습니다.',
-        delete: '주문이 삭제되었습니다.'
-      };
-
-      alert(successMessages[action] || '상태가 변경되었습니다.');
-
-      // 모달 닫고 목록 새로고침
-      setIsDetailsModalOpen(false);
-      fetchOrders();
-    } catch (error) {
-      console.error('주문 상태 변경 중 오류:', error);
-      alert(error.message || '상태 변경에 실패했습니다.');
+      await inventoryService.updateOrderStatus(orderId, newStatus);
+      
+      // 주문 목록과 상세 정보를 모두 새로고침
+      await fetchOrders();
+      
+      // 상세 정보도 새로고침
+      if (selectedOrderDetails) {
+        const updatedDetails = await inventoryService.getOrders({
+          id: orderId,
+          include_details: true,
+          include_histories: true
+        });
+        setSelectedOrderDetails(updatedDetails);
+      }
+      
+      message.success(successMessages[newStatus] || '상태가 변경되었습니다.');
+    } catch (err) {
+      console.error('Error updating order status:', err);
+      message.error('주문 상태 변경 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
@@ -577,13 +578,13 @@ export const OrderManagementPage = () => {
                       {selectedOrderDetails.status === 'draft' && (
                         <>
                           <button
-                            onClick={() => handleOrderAction(selectedOrderDetails.id, 'pending')}
+                            onClick={() => handleStatusChange(selectedOrderDetails.id, 'pending')}
                             className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200"
                           >
                             승인대기로 변경
                           </button>
                           <button
-                            onClick={() => handleOrderAction(selectedOrderDetails.id, 'delete')}
+                            onClick={() => handleStatusChange(selectedOrderDetails.id, 'delete')}
                             className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
                           >
                             삭제
@@ -594,19 +595,19 @@ export const OrderManagementPage = () => {
                       {selectedOrderDetails.status === 'pending' && (
                         <>
                           <button
-                            onClick={() => handleOrderAction(selectedOrderDetails.id, 'approve')}
+                            onClick={() => handleStatusChange(selectedOrderDetails.id, 'approve')}
                             className="px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
                           >
                             승인
                           </button>
                           <button
-                            onClick={() => handleOrderAction(selectedOrderDetails.id, 'cancel')}
+                            onClick={() => handleStatusChange(selectedOrderDetails.id, 'cancel')}
                             className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
                           >
                             취소
                           </button>
                           <button
-                            onClick={() => handleOrderAction(selectedOrderDetails.id, 'delete')}
+                            onClick={() => handleStatusChange(selectedOrderDetails.id, 'delete')}
                             className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
                           >
                             삭제
@@ -616,7 +617,7 @@ export const OrderManagementPage = () => {
                       {/* 승인완료 상태 */}
                       {selectedOrderDetails.status === 'approved' && (
                         <button
-                          onClick={() => handleOrderAction(selectedOrderDetails.id, 'order')}
+                          onClick={() => handleStatusChange(selectedOrderDetails.id, 'order')}
                           className="px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200"
                         >
                           발주
@@ -625,7 +626,7 @@ export const OrderManagementPage = () => {
                       {/* 발주완료 상태 */}
                       {selectedOrderDetails.status === 'ordered' && (
                         <button
-                          onClick={() => handleOrderAction(selectedOrderDetails.id, 'receive')}
+                          onClick={() => handleStatusChange(selectedOrderDetails.id, 'receive')}
                           className="px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200"
                         >
                           입고
@@ -634,7 +635,7 @@ export const OrderManagementPage = () => {
                       {/* 취소 상태 */}
                       {selectedOrderDetails.status === 'cancelled' && (
                         <button
-                          onClick={() => handleOrderAction(selectedOrderDetails.id, 'delete')}
+                          onClick={() => handleStatusChange(selectedOrderDetails.id, 'delete')}
                           className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
                         >
                           삭제

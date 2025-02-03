@@ -263,7 +263,7 @@ export const SupplierManagementPage = () => {
                     <input
                       type="email"
                       name="email"
-                      value={formData.email}
+                      value={formData.email || '-'}
                       onChange={(e) =>
                         setFormData((prev) => ({ ...prev, email: e.target.value }))
                       }

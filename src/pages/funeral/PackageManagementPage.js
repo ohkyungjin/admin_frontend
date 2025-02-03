@@ -156,9 +156,16 @@ export const PackageManagementPage = () => {
       title: '설명',
       dataIndex: 'description',
       key: 'description',
+      ellipsis: true,
+      width: 300,
+      render: (text) => (
+        <div title={text}>
+          {text}
+        </div>
+      ),
     },
     {
-      title: '총 가격',
+      title: '가격',
       dataIndex: 'price',
       key: 'price',
       render: (price) => `${price?.toLocaleString()}원`

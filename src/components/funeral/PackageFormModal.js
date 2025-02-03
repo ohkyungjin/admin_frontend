@@ -40,11 +40,13 @@ export const PackageFormModal = ({
         total_price: editingPackage.price,
         selected_items: editingPackage.items?.reduce((acc, item) => ({
           ...acc,
-          [item.category_id]: item.id
+          [item.category.id]: item.default_item.id  // category와 default_item 객체에서 id 추출
         }), {})
       };
       console.log('설정할 폼 데이터:', formValues);
       form.setFieldsValue(formValues);
+    } else {
+      form.resetFields();
     }
   }, [visible, editingPackage, form]);
 
@@ -63,10 +65,29 @@ export const PackageFormModal = ({
 
   const handleSubmit = async (values) => {
     try {
-      await onSubmit(values);
-      form.resetFields();
+      console.log('Form values:', values);
+      
+      const submitData = {
+        ...values,
+        price: values.total_price?.toString(),
+        items_data: Object.entries(values.selected_items || {}).map(([categoryId, itemId]) => ({
+          category_id: parseInt(categoryId),
+          default_item_id: parseInt(itemId),
+          is_required: true
+        })),
+        is_active: true
+      };
+
+      delete submitData.selected_items;
+      delete submitData.total_price;
+
+      console.log('API request data:', submitData);
+      await onSubmit(submitData);
+      message.success('패키지가 성공적으로 저장되었습니다.');
+      onCancel();  // 성공 시 모달 닫기
     } catch (error) {
       console.error('패키지 저장 오류:', error);
+      message.error('패키지 저장에 실패했습니다.');
     }
   };
 

@@ -85,12 +85,19 @@ export const PremiumLineManagementPage = () => {
       title: '설명',
       dataIndex: 'description',
       key: 'description',
+      ellipsis: true,
+      width: 300,
+      render: (text) => (
+        <div title={text}>
+          {text}
+        </div>
+      ),
     },
     {
       title: '가격',
       dataIndex: 'price',
       key: 'price',
-      render: (price) => price != null ? `₩${price.toLocaleString()}` : '-',
+      render: (price) => price != null ? `${price.toLocaleString()} 원` : '-',
     },
     {
       title: '작업',

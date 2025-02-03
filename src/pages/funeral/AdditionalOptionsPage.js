@@ -85,6 +85,13 @@ export const AdditionalOptionsPage = () => {
       title: '설명',
       dataIndex: 'description',
       key: 'description',
+      ellipsis: true,
+      width: 300,
+      render: (text) => (
+        <div title={text}>
+          {text}
+        </div>
+      ),
     },
     {
       title: '가격',
