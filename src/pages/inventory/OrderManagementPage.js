@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { inventoryService } from '../../services/inventoryService';
+import { Card, Button, Table } from 'antd';
 
 export const OrderManagementPage = () => {
   const [orders, setOrders] = useState([]);
@@ -362,37 +363,38 @@ export const OrderManagementPage = () => {
   }, [filters, fetchOrders]);
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">구매 주문 관리</h1>
-        <button
-          onClick={() => {
-            setSelectedOrder(null);
-            setFormData(initialFormData);
-            setIsModalOpen(true);
-          }}
-          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
-        >
-          구매 주문 생성
-        </button>
-      </div>
-
-      {error && (
-        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-          {error}
+    <div className="p-6">
+      <Card className="shadow-lg">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold text-blue-800">구매 주문 관리</h1>
+          <Button
+            type="primary"
+            onClick={() => {
+              setSelectedOrder(null);
+              setFormData(initialFormData);
+              setIsModalOpen(true);
+            }}
+            className="!bg-blue-800 !border-blue-800 hover:!bg-blue-900 hover:!border-blue-900 !text-white"
+          >
+            구매 주문 생성
+          </Button>
         </div>
-      )}
 
-      {/* 필터 섹션 */}
-      <div className="mb-6">
-        <div className="bg-white p-4 rounded-lg shadow-sm">
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-600 rounded-lg">
+            {error}
+          </div>
+        )}
+
+        {/* 필터 섹션 */}
+        <Card className="mb-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm mb-1">상태</label>
               <select
                 value={filters.status}
                 onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
               >
                 <option value="">전체</option>
                 <option value="draft">임시저장</option>
@@ -408,7 +410,7 @@ export const OrderManagementPage = () => {
               <select
                 value={filters.supplier}
                 onChange={(e) => setFilters(prev => ({ ...prev, supplier: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
               >
                 <option value="">전체</option>
                 {suppliers.map((supplier) => (
@@ -425,562 +427,574 @@ export const OrderManagementPage = () => {
                 value={filters.search}
                 onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
                 placeholder="주문번호 또는 메모로 검색"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
               />
             </div>
           </div>
-        </div>
-      </div>
+        </Card>
 
-      {/* 주문 목록 테이블 */}
-      <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">주문일자</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">품목명</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">공급업체</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">총 금액</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">작성자</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {loading ? (
-                <tr>
-                  <td colSpan="7" className="px-6 py-4 text-center">
-                    로딩중...
-                  </td>
-                </tr>
-              ) : orders.length === 0 ? (
-                <tr>
-                  <td colSpan="7" className="px-6 py-4 text-center">
-                    등록된 구매 주문이 없습니다.
-                  </td>
-                </tr>
-              ) : (
-                orders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {order.order_date}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {order.items_info.map(item => item.name).join(', ')}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {order.supplier_name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                      {Number(order.total_amount).toLocaleString()}원
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(order.status)}`}>
-                        {order.status_display}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                      {order.created_by_name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-center">
-                      <button
-                        onClick={() => handleViewDetails(order)}
-                        className="text-blue-600 hover:text-blue-900 mr-4"
-                      >
-                        상세
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+        {/* 주문 목록 테이블 */}
+        <Table
+          columns={[
+            {
+              title: '주문일자',
+              dataIndex: 'order_date',
+              key: 'order_date',
+            },
+            {
+              title: '품목명',
+              dataIndex: 'items_info',
+              key: 'items_info',
+              render: items => items.map(item => item.name).join(', '),
+            },
+            {
+              title: '공급업체',
+              dataIndex: 'supplier_name',
+              key: 'supplier_name',
+            },
+            {
+              title: '총 금액',
+              dataIndex: 'total_amount',
+              key: 'total_amount',
+              align: 'right',
+              render: amount => `${Number(amount).toLocaleString()}원`,
+            },
+            {
+              title: '상태',
+              dataIndex: 'status',
+              key: 'status',
+              align: 'center',
+              render: (status, record) => (
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(status)}`}>
+                  {record.status_display}
+                </span>
+              ),
+            },
+            {
+              title: '작성자',
+              dataIndex: 'created_by_name',
+              key: 'created_by_name',
+              align: 'center',
+            },
+            {
+              title: '작업',
+              key: 'action',
+              align: 'center',
+              render: (_, record) => (
+                <Button
+                  type="link"
+                  onClick={() => handleViewDetails(record)}
+                  className="text-blue-600 hover:text-blue-900"
+                >
+                  상세
+                </Button>
+              ),
+            },
+          ]}
+          dataSource={orders}
+          rowKey="id"
+          loading={loading}
+          components={{
+            header: {
+              cell: props => (
+                <th 
+                  {...props} 
+                  className="bg-gray-100 text-blue-800 font-medium"
+                />
+              )
+            }
+          }}
+          locale={{
+            emptyText: '등록된 구매 주문이 없습니다.'
+          }}
+        />
 
-      {/* 주문 상세 정보 모달 */}
-      {isDetailsModalOpen && selectedOrderDetails && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-[1000px] max-h-[90vh] overflow-y-auto p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">주문 상세 정보</h2>
-              <button
-                onClick={() => setIsDetailsModalOpen(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                ×
-              </button>
-            </div>
+        {/* 주문 상세 정보 모달 */}
+        {isDetailsModalOpen && selectedOrderDetails && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg w-[1000px] max-h-[90vh] overflow-y-auto p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">주문 상세 정보</h2>
+                <button
+                  onClick={() => setIsDetailsModalOpen(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ×
+                </button>
+              </div>
 
-            <div className="space-y-6">
-              {/* 주문 기본 정보 */}
-              <div className="space-y-6 mb-6">
-                {/* 주문 요약 정보 */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-4">주문 정보</h3>
-                      <div className="space-y-4">
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">주문 번호</p>
-                          <p className="mt-1 text-sm text-gray-900">{selectedOrderDetails.order_number}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">공급업체</p>
-                          <p className="mt-1 text-sm text-gray-900">{selectedOrderDetails.supplier.name}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">주문 일자</p>
-                          <p className="mt-1 text-sm text-gray-900">{selectedOrderDetails.order_date}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">입고 예정일</p>
-                          <p className="mt-1 text-sm text-gray-900">{selectedOrderDetails.expected_date}</p>
+              <div className="space-y-6">
+                {/* 주문 기본 정보 */}
+                <div className="space-y-6 mb-6">
+                  {/* 주문 요약 정보 */}
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-4">주문 정보</h3>
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-sm font-medium text-gray-500">주문 번호</p>
+                            <p className="mt-1 text-sm text-gray-900">{selectedOrderDetails.order_number}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-500">공급업체</p>
+                            <p className="mt-1 text-sm text-gray-900">{selectedOrderDetails.supplier.name}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-500">주문 일자</p>
+                            <p className="mt-1 text-sm text-gray-900">{selectedOrderDetails.order_date}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-500">입고 예정일</p>
+                            <p className="mt-1 text-sm text-gray-900">{selectedOrderDetails.expected_date}</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-4">상태 정보</h3>
-                      <div className="space-y-4">
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">현재 상태</p>
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(selectedOrderDetails.status)}`}>
-                            {selectedOrderDetails.status_display}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">총 금액</p>
-                          <p className="mt-1 text-sm text-gray-900 font-semibold">{Number(selectedOrderDetails.total_amount).toLocaleString()}원</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">비고</p>
-                          <p className="mt-1 text-sm text-gray-900">{selectedOrderDetails.notes || '-'}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 상태 관리 버튼 */}
-                  <div className="flex justify-end space-x-2 mt-6">
-                    {/* 임시저장 상태 */}
-                    {selectedOrderDetails.status === 'draft' && (
-                      <>
-                        <button
-                          onClick={() => handleOrderAction(selectedOrderDetails.id, 'pending')}
-                          className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200"
-                        >
-                          승인대기로 변경
-                        </button>
-                        <button
-                          onClick={() => handleOrderAction(selectedOrderDetails.id, 'delete')}
-                          className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
-                        >
-                          삭제
-                        </button>
-                      </>
-                    )}
-                    {/* 승인대기 상태 */}
-                    {selectedOrderDetails.status === 'pending' && (
-                      <>
-                        <button
-                          onClick={() => handleOrderAction(selectedOrderDetails.id, 'approve')}
-                          className="px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
-                        >
-                          승인
-                        </button>
-                        <button
-                          onClick={() => handleOrderAction(selectedOrderDetails.id, 'cancel')}
-                          className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
-                        >
-                          취소
-                        </button>
-                        <button
-                          onClick={() => handleOrderAction(selectedOrderDetails.id, 'delete')}
-                          className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
-                        >
-                          삭제
-                        </button>
-                      </>
-                    )}
-                    {/* 승인완료 상태 */}
-                    {selectedOrderDetails.status === 'approved' && (
-                      <button
-                        onClick={() => handleOrderAction(selectedOrderDetails.id, 'order')}
-                        className="px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200"
-                      >
-                        발주
-                      </button>
-                    )}
-                    {/* 발주완료 상태 */}
-                    {selectedOrderDetails.status === 'ordered' && (
-                      <button
-                        onClick={() => handleOrderAction(selectedOrderDetails.id, 'receive')}
-                        className="px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200"
-                      >
-                        입고
-                      </button>
-                    )}
-                    {/* 취소 상태 */}
-                    {selectedOrderDetails.status === 'cancelled' && (
-                      <button
-                        onClick={() => handleOrderAction(selectedOrderDetails.id, 'delete')}
-                        className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
-                      >
-                        삭제
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* 처리 이력 */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">처리 이력</h3>
-                  <div className="flow-root">
-                    <ul className="relative">
-                      {/* 작성 */}
-                      <li className="mb-6">
-                        <div className="relative flex items-start">
-                          <div className="flex-shrink-0">
-                            <span className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center">
-                              <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                                <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" />
-                              </svg>
+                      <div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-4">상태 정보</h3>
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-sm font-medium text-gray-500">현재 상태</p>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(selectedOrderDetails.status)}`}>
+                              {selectedOrderDetails.status_display}
                             </span>
                           </div>
-                          <div className="ml-4 min-w-0 flex-1">
-                            <div className="text-sm font-medium text-gray-900">작성</div>
-                            <div className="mt-1 text-sm text-gray-500">
-                              <span className="font-medium">{selectedOrderDetails.created_by_name}</span>
-                              <span className="mx-2">·</span>
-                              <span>{selectedOrderDetails.created_at && new Date(selectedOrderDetails.created_at).toLocaleString()}</span>
-                            </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-500">총 금액</p>
+                            <p className="mt-1 text-sm text-gray-900 font-semibold">{Number(selectedOrderDetails.total_amount).toLocaleString()}원</p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-500">비고</p>
+                            <p className="mt-1 text-sm text-gray-900">{selectedOrderDetails.notes || '-'}</p>
                           </div>
                         </div>
-                      </li>
+                      </div>
+                    </div>
 
-                      {/* 승인 */}
-                      {selectedOrderDetails.histories?.find(h => h.to_status === 'approved') && (
+                    {/* 상태 관리 버튼 */}
+                    <div className="flex justify-end space-x-2 mt-6">
+                      {/* 임시저장 상태 */}
+                      {selectedOrderDetails.status === 'draft' && (
+                        <>
+                          <button
+                            onClick={() => handleOrderAction(selectedOrderDetails.id, 'pending')}
+                            className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200"
+                          >
+                            승인대기로 변경
+                          </button>
+                          <button
+                            onClick={() => handleOrderAction(selectedOrderDetails.id, 'delete')}
+                            className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
+                          >
+                            삭제
+                          </button>
+                        </>
+                      )}
+                      {/* 승인대기 상태 */}
+                      {selectedOrderDetails.status === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => handleOrderAction(selectedOrderDetails.id, 'approve')}
+                            className="px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
+                          >
+                            승인
+                          </button>
+                          <button
+                            onClick={() => handleOrderAction(selectedOrderDetails.id, 'cancel')}
+                            className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
+                          >
+                            취소
+                          </button>
+                          <button
+                            onClick={() => handleOrderAction(selectedOrderDetails.id, 'delete')}
+                            className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
+                          >
+                            삭제
+                          </button>
+                        </>
+                      )}
+                      {/* 승인완료 상태 */}
+                      {selectedOrderDetails.status === 'approved' && (
+                        <button
+                          onClick={() => handleOrderAction(selectedOrderDetails.id, 'order')}
+                          className="px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200"
+                        >
+                          발주
+                        </button>
+                      )}
+                      {/* 발주완료 상태 */}
+                      {selectedOrderDetails.status === 'ordered' && (
+                        <button
+                          onClick={() => handleOrderAction(selectedOrderDetails.id, 'receive')}
+                          className="px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200"
+                        >
+                          입고
+                        </button>
+                      )}
+                      {/* 취소 상태 */}
+                      {selectedOrderDetails.status === 'cancelled' && (
+                        <button
+                          onClick={() => handleOrderAction(selectedOrderDetails.id, 'delete')}
+                          className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
+                        >
+                          삭제
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 처리 이력 */}
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">처리 이력</h3>
+                    <div className="flow-root">
+                      <ul className="relative">
+                        {/* 작성 */}
                         <li className="mb-6">
                           <div className="relative flex items-start">
                             <div className="flex-shrink-0">
-                              <span className="h-8 w-8 rounded-full bg-green-500 flex items-center justify-center">
+                              <span className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center">
                                 <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" />
+                                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                                  <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" />
                                 </svg>
                               </span>
                             </div>
                             <div className="ml-4 min-w-0 flex-1">
-                              <div className="text-sm font-medium text-gray-900">승인</div>
+                              <div className="text-sm font-medium text-gray-900">작성</div>
                               <div className="mt-1 text-sm text-gray-500">
-                                <span className="font-medium">{selectedOrderDetails.histories.find(h => h.to_status === 'approved').changed_by_name}</span>
+                                <span className="font-medium">{selectedOrderDetails.created_by_name}</span>
                                 <span className="mx-2">·</span>
-                                <span>{new Date(selectedOrderDetails.histories.find(h => h.to_status === 'approved').created_at).toLocaleString()}</span>
+                                <span>{selectedOrderDetails.created_at && new Date(selectedOrderDetails.created_at).toLocaleString()}</span>
                               </div>
                             </div>
                           </div>
                         </li>
-                      )}
 
-                      {/* 발주 */}
-                      {selectedOrderDetails.histories?.find(h => h.to_status === 'ordered') && (
-                        <li className="mb-6">
-                          <div className="relative flex items-start">
-                            <div className="flex-shrink-0">
-                              <span className="h-8 w-8 rounded-full bg-purple-500 flex items-center justify-center">
-                                <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                  <path d="M8 5a1 1 0 100 2h5.586l-1.293 1.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 5H8zM12 15a1 1 0 100-2H6.414l1.293-1.293a1 1 0 10-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L6.414 15H12z" />
-                                </svg>
-                              </span>
-                            </div>
-                            <div className="ml-4 min-w-0 flex-1">
-                              <div className="text-sm font-medium text-gray-900">발주</div>
-                              <div className="mt-1 text-sm text-gray-500">
-                                <span className="font-medium">{selectedOrderDetails.histories.find(h => h.to_status === 'ordered').changed_by_name}</span>
-                                <span className="mx-2">·</span>
-                                <span>{new Date(selectedOrderDetails.histories.find(h => h.to_status === 'ordered').created_at).toLocaleString()}</span>
+                        {/* 승인 */}
+                        {selectedOrderDetails.histories?.find(h => h.to_status === 'approved') && (
+                          <li className="mb-6">
+                            <div className="relative flex items-start">
+                              <div className="flex-shrink-0">
+                                <span className="h-8 w-8 rounded-full bg-green-500 flex items-center justify-center">
+                                  <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" />
+                                  </svg>
+                                </span>
+                              </div>
+                              <div className="ml-4 min-w-0 flex-1">
+                                <div className="text-sm font-medium text-gray-900">승인</div>
+                                <div className="mt-1 text-sm text-gray-500">
+                                  <span className="font-medium">{selectedOrderDetails.histories.find(h => h.to_status === 'approved').changed_by_name}</span>
+                                  <span className="mx-2">·</span>
+                                  <span>{new Date(selectedOrderDetails.histories.find(h => h.to_status === 'approved').created_at).toLocaleString()}</span>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </li>
-                      )}
+                          </li>
+                        )}
 
-                      {/* 입고 */}
-                      {selectedOrderDetails.histories?.find(h => h.to_status === 'received') && (
-                        <li>
-                          <div className="relative flex items-start">
-                            <div className="flex-shrink-0">
-                              <span className="h-8 w-8 rounded-full bg-indigo-500 flex items-center justify-center">
-                                <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                  <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
-                                </svg>
-                              </span>
-                            </div>
-                            <div className="ml-4 min-w-0 flex-1">
-                              <div className="text-sm font-medium text-gray-900">입고</div>
-                              <div className="mt-1 text-sm text-gray-500">
-                                <span className="font-medium">{selectedOrderDetails.histories.find(h => h.to_status === 'received').changed_by_name}</span>
-                                <span className="mx-2">·</span>
-                                <span>{new Date(selectedOrderDetails.histories.find(h => h.to_status === 'received').created_at).toLocaleString()}</span>
+                        {/* 발주 */}
+                        {selectedOrderDetails.histories?.find(h => h.to_status === 'ordered') && (
+                          <li className="mb-6">
+                            <div className="relative flex items-start">
+                              <div className="flex-shrink-0">
+                                <span className="h-8 w-8 rounded-full bg-purple-500 flex items-center justify-center">
+                                  <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M8 5a1 1 0 100 2h5.586l-1.293 1.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 5H8zM12 15a1 1 0 100-2H6.414l1.293-1.293a1 1 0 10-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L6.414 15H12z" />
+                                  </svg>
+                                </span>
+                              </div>
+                              <div className="ml-4 min-w-0 flex-1">
+                                <div className="text-sm font-medium text-gray-900">발주</div>
+                                <div className="mt-1 text-sm text-gray-500">
+                                  <span className="font-medium">{selectedOrderDetails.histories.find(h => h.to_status === 'ordered').changed_by_name}</span>
+                                  <span className="mx-2">·</span>
+                                  <span>{new Date(selectedOrderDetails.histories.find(h => h.to_status === 'ordered').created_at).toLocaleString()}</span>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </li>
-                      )}
+                          </li>
+                        )}
 
-                      {/* 취소 */}
-                      {selectedOrderDetails.histories?.find(h => h.to_status === 'cancelled') && (
-                        <li>
-                          <div className="relative flex items-start">
-                            <div className="flex-shrink-0">
-                              <span className="h-8 w-8 rounded-full bg-red-500 flex items-center justify-center">
-                                <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" />
-                                </svg>
-                              </span>
-                            </div>
-                            <div className="ml-4 min-w-0 flex-1">
-                              <div className="text-sm font-medium text-gray-900">취소</div>
-                              <div className="mt-1 text-sm text-gray-500">
-                                <span className="font-medium">{selectedOrderDetails.histories.find(h => h.to_status === 'cancelled').changed_by_name}</span>
-                                <span className="mx-2">·</span>
-                                <span>{new Date(selectedOrderDetails.histories.find(h => h.to_status === 'cancelled').created_at).toLocaleString()}</span>
+                        {/* 입고 */}
+                        {selectedOrderDetails.histories?.find(h => h.to_status === 'received') && (
+                          <li>
+                            <div className="relative flex items-start">
+                              <div className="flex-shrink-0">
+                                <span className="h-8 w-8 rounded-full bg-indigo-500 flex items-center justify-center">
+                                  <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+                                  </svg>
+                                </span>
+                              </div>
+                              <div className="ml-4 min-w-0 flex-1">
+                                <div className="text-sm font-medium text-gray-900">입고</div>
+                                <div className="mt-1 text-sm text-gray-500">
+                                  <span className="font-medium">{selectedOrderDetails.histories.find(h => h.to_status === 'received').changed_by_name}</span>
+                                  <span className="mx-2">·</span>
+                                  <span>{new Date(selectedOrderDetails.histories.find(h => h.to_status === 'received').created_at).toLocaleString()}</span>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </li>
-                      )}
-                    </ul>
+                          </li>
+                        )}
+
+                        {/* 취소 */}
+                        {selectedOrderDetails.histories?.find(h => h.to_status === 'cancelled') && (
+                          <li>
+                            <div className="relative flex items-start">
+                              <div className="flex-shrink-0">
+                                <span className="h-8 w-8 rounded-full bg-red-500 flex items-center justify-center">
+                                  <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" />
+                                  </svg>
+                                </span>
+                              </div>
+                              <div className="ml-4 min-w-0 flex-1">
+                                <div className="text-sm font-medium text-gray-900">취소</div>
+                                <div className="mt-1 text-sm text-gray-500">
+                                  <span className="font-medium">{selectedOrderDetails.histories.find(h => h.to_status === 'cancelled').changed_by_name}</span>
+                                  <span className="mx-2">·</span>
+                                  <span>{new Date(selectedOrderDetails.histories.find(h => h.to_status === 'cancelled').created_at).toLocaleString()}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </li>
+                        )}
+                      </ul>
+                    </div>
                   </div>
-                </div>
 
-                {/* 주문 품목 */}
-                <div className="bg-white rounded-lg shadow overflow-hidden">
-                  <div className="px-6 py-5 border-b border-gray-200">
-                    <h3 className="text-lg font-medium text-gray-900">주문 품목</h3>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">품목코드</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">품목명</th>
-                          <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">주문수량</th>
-                          <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">단가</th>
-                          <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">금액</th>
-                          <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">실제 입고수량</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">비고</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {selectedOrderDetails.items?.map((item, index) => (
-                          <tr key={index}>
-                            <td className="px-6 py-4 text-sm text-gray-500">{item.item_code}</td>
-                            <td className="px-6 py-4 text-sm text-gray-900">{item.item_name}</td>
-                            <td className="px-6 py-4 text-sm text-gray-900 text-right">{item.quantity.toLocaleString()}</td>
-                            <td className="px-6 py-4 text-sm text-gray-900 text-right">{Number(item.unit_price).toLocaleString()}원</td>
-                            <td className="px-6 py-4 text-sm text-gray-900 text-right">{Number(item.total_price).toLocaleString()}원</td>
-                            <td className="px-6 py-4 text-sm text-gray-900 text-right">
-                              {selectedOrderDetails.status === 'received' ? item.quantity.toLocaleString() : '0'}
-                            </td>
-                            <td className="px-6 py-4 text-sm text-gray-500">{item.notes || '-'}</td>
+                  {/* 주문 품목 */}
+                  <div className="bg-white rounded-lg shadow overflow-hidden">
+                    <div className="px-6 py-5 border-b border-gray-200">
+                      <h3 className="text-lg font-medium text-gray-900">주문 품목</h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">품목코드</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">품목명</th>
+                            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">주문수량</th>
+                            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">단가</th>
+                            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">금액</th>
+                            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">실제 입고수량</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">비고</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {selectedOrderDetails.items?.map((item, index) => (
+                            <tr key={index}>
+                              <td className="px-6 py-4 text-sm text-gray-500">{item.item_code}</td>
+                              <td className="px-6 py-4 text-sm text-gray-900">{item.item_name}</td>
+                              <td className="px-6 py-4 text-sm text-gray-900 text-right">{item.quantity.toLocaleString()}</td>
+                              <td className="px-6 py-4 text-sm text-gray-900 text-right">{Number(item.unit_price).toLocaleString()}원</td>
+                              <td className="px-6 py-4 text-sm text-gray-900 text-right">{Number(item.total_price).toLocaleString()}원</td>
+                              <td className="px-6 py-4 text-sm text-gray-900 text-right">
+                                {selectedOrderDetails.status === 'received' ? item.quantity.toLocaleString() : '0'}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-500">{item.notes || '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* 구매 주문 생성 모달 */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold">
-                {selectedOrder ? '구매 주문 수정' : '구매 주문 생성'}
-              </h2>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {error && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                  {error.split('\n').map((line, index) => (
-                    <p key={index}>{line}</p>
-                  ))}
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    주문 번호
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.order_number}
-                    onChange={(e) => setFormData(prev => ({ ...prev, order_number: e.target.value }))}
-                    placeholder="자동 생성됩니다"
-                    className="w-full px-3 py-2 border rounded-lg"
-                    disabled
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    공급업체 <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={formData.supplier}
-                    onChange={(e) => setFormData(prev => ({ ...prev, supplier: e.target.value }))}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    required
-                  >
-                    <option value="">공급업체 선택</option>
-                    {suppliers.map(supplier => (
-                      <option key={supplier.id} value={supplier.id}>
-                        {supplier.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    예상 납기일 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.expected_date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, expected_date: e.target.value }))}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    주문 품목 <span className="text-red-500">*</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={addOrderItem}
-                    className="text-blue-500 hover:text-blue-600"
-                  >
-                    + 품목 추가
-                  </button>
-                </div>
-
-                {formData.items.map((item, index) => (
-                  <div key={index} className="grid grid-cols-5 gap-2 mb-2">
-                    <div className="col-span-2">
-                      <select
-                        value={item.item}
-                        onChange={(e) => updateOrderItem(index, 'item', e.target.value)}
-                        className="w-full px-2 py-1 border rounded"
-                        required
-                      >
-                        <option value="">품목 선택</option>
-                        {items.map(i => (
-                          <option key={i.id} value={i.id}>
-                            {i.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <input
-                        type="number"
-                        value={item.quantity}
-                        onChange={(e) => updateOrderItem(index, 'quantity', e.target.value)}
-                        placeholder="수량"
-                        className="w-full px-2 py-1 border rounded"
-                        required
-                        min="1"
-                      />
-                    </div>
-                    <div>
-                      <input
-                        type="number"
-                        value={item.unit_price}
-                        onChange={(e) => updateOrderItem(index, 'unit_price', e.target.value)}
-                        placeholder="단가"
-                        className="w-full px-2 py-1 border rounded"
-                        required
-                        min="0"
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-600">{item.total_price.toLocaleString()}원</span>
-                      {formData.items.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeOrderItem(index)}
-                          className="text-red-500 hover:text-red-600 ml-2"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-                <div className="text-right mt-2">
-                  <span className="font-medium">총 금액: </span>
-                  <span className="text-lg font-bold">{formData.total_amount.toLocaleString()}원</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  비고
-                </label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  rows="3"
+        {/* 구매 주문 생성 모달 */}
+        {isModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold text-blue-800">
+                  {selectedOrder ? '구매 주문 수정' : '구매 주문 생성'}
+                </h2>
+                <Button
+                  type="text"
+                  onClick={() => setIsModalOpen(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                  icon={
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  }
                 />
               </div>
 
-              <div className="flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border rounded-lg hover:bg-gray-50"
-                  disabled={loading}
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300"
-                  disabled={loading}
-                >
-                  {loading ? '처리중...' : selectedOrder ? '수정' : '생성'}
-                </button>
-              </div>
-            </form>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
+                    {error.split('\n').map((line, index) => (
+                      <p key={index}>{line}</p>
+                    ))}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      주문 번호
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.order_number}
+                      onChange={(e) => setFormData(prev => ({ ...prev, order_number: e.target.value }))}
+                      placeholder="자동 생성됩니다"
+                      className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
+                      disabled
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      공급업체 <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={formData.supplier}
+                      onChange={(e) => setFormData(prev => ({ ...prev, supplier: e.target.value }))}
+                      className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
+                      required
+                    >
+                      <option value="">공급업체 선택</option>
+                      {suppliers.map(supplier => (
+                        <option key={supplier.id} value={supplier.id}>
+                          {supplier.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      예상 납기일 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.expected_date}
+                      onChange={(e) => setFormData(prev => ({ ...prev, expected_date: e.target.value }))}
+                      className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <Card className="!border-gray-200">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      주문 품목 <span className="text-red-500">*</span>
+                    </label>
+                    <Button
+                      type="link"
+                      onClick={addOrderItem}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      + 품목 추가
+                    </Button>
+                  </div>
+
+                  {formData.items.map((item, index) => (
+                    <div key={index} className="grid grid-cols-5 gap-2 mb-2">
+                      <div className="col-span-2">
+                        <select
+                          value={item.item}
+                          onChange={(e) => updateOrderItem(index, 'item', e.target.value)}
+                          className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
+                          required
+                        >
+                          <option value="">품목 선택</option>
+                          {items.map(i => (
+                            <option key={i.id} value={i.id}>
+                              {i.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => updateOrderItem(index, 'quantity', e.target.value)}
+                          placeholder="수량"
+                          className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
+                          required
+                          min="1"
+                        />
+                      </div>
+                      <div>
+                        <input
+                          type="number"
+                          value={item.unit_price}
+                          onChange={(e) => updateOrderItem(index, 'unit_price', e.target.value)}
+                          placeholder="단가"
+                          className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
+                          required
+                          min="0"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">{item.total_price.toLocaleString()}원</span>
+                        {formData.items.length > 1 && (
+                          <Button
+                            type="text"
+                            onClick={() => removeOrderItem(index)}
+                            className="text-red-500 hover:text-red-600"
+                            icon={
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            }
+                          />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="text-right mt-2">
+                    <span className="font-medium">총 금액: </span>
+                    <span className="text-lg font-bold text-blue-800">{formData.total_amount.toLocaleString()}원</span>
+                  </div>
+                </Card>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    비고
+                  </label>
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                    className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
+                    rows="3"
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <Button
+                    onClick={() => setIsModalOpen(false)}
+                    className="!border-gray-300 hover:!bg-gray-50"
+                    disabled={loading}
+                  >
+                    취소
+                  </Button>
+                  <Button
+                    type="primary"
+                    htmlType="submit"
+                    className="!bg-blue-800 !border-blue-800 hover:!bg-blue-900 hover:!border-blue-900"
+                    disabled={loading}
+                  >
+                    {loading ? '처리중...' : selectedOrder ? '수정' : '생성'}
+                  </Button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </Card>
     </div>
   );
 };

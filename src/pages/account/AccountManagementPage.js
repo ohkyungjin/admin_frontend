@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { accountService } from '../../services/accountService';
+import { Card, Button, Table, Space, Popconfirm } from 'antd';
 
 export const AccountManagementPage = () => {
   const [accounts, setAccounts] = useState([]);
@@ -201,208 +202,254 @@ export const AccountManagementPage = () => {
     setError('');
   };
 
+  const columns = [
+    {
+      title: '이메일',
+      dataIndex: 'email',
+      key: 'email',
+    },
+    {
+      title: '이름',
+      dataIndex: 'name',
+      key: 'name',
+    },
+    {
+      title: '부서',
+      dataIndex: 'department',
+      key: 'department',
+    },
+    {
+      title: '직책',
+      dataIndex: 'position',
+      key: 'position',
+    },
+    {
+      title: '권한',
+      dataIndex: 'auth_level',
+      key: 'auth_level',
+      render: (text) => `Level ${text}`,
+    },
+    {
+      title: '관리',
+      key: 'action',
+      render: (_, record) => (
+        <Space>
+          <Button
+            onClick={() => openModal(record)}
+            className="!text-blue-800 !border-blue-800 hover:!text-blue-900 hover:!border-blue-900"
+          >
+            수정
+          </Button>
+          <Popconfirm
+            title="계정을 삭제하시겠습니까?"
+            onConfirm={() => handleDelete(record.id)}
+            okText="예"
+            cancelText="아니오"
+            okButtonProps={{ 
+              className: "!bg-blue-800 !border-blue-800 hover:!bg-blue-900 hover:!border-blue-900 !text-white" 
+            }}
+            cancelButtonProps={{ 
+              className: "!text-blue-800 !border-blue-800 hover:!text-blue-900 hover:!border-blue-900" 
+            }}
+          >
+            <Button 
+              danger 
+              className="!bg-red-500 !border-red-500 hover:!bg-red-600 hover:!border-red-600 !text-white"
+            >
+              삭제
+            </Button>
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
+
   return (
     <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">계정 관리</h1>
-        <button
-          onClick={() => openModal()}
-          className="px-4 py-2 bg-[#059669] text-white rounded-lg hover:bg-[#047857] transition-colors"
-        >
-          계정 추가
-        </button>
-      </div>
-
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-600 rounded-lg">
-          {error}
+      <Card className="shadow-lg">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold text-blue-800">계정 관리</h1>
+          <Button
+            type="primary"
+            onClick={openModal}
+            className="!bg-blue-800 !border-blue-800 hover:!bg-blue-900 hover:!border-blue-900 !text-white"
+          >
+            새 계정 추가
+          </Button>
         </div>
-      )}
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이메일</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이름</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">부서</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">직책</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">권한</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">관리</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {accounts.map((account) => (
-              <tr key={account.id}>
-                <td className="px-6 py-4 whitespace-nowrap">{account.email}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{account.name}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{account.department}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{account.position}</td>
-                <td className="px-6 py-4 whitespace-nowrap">Level {account.auth_level}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <button
-                    onClick={() => openModal(account)}
-                    className="text-[#059669] hover:text-[#047857] mr-3"
-                  >
-                    수정
-                  </button>
-                  <button
-                    onClick={() => handleDelete(account.id)}
-                    className="text-red-600 hover:text-red-800"
-                  >
-                    삭제
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-600 rounded-lg">
+            {error}
+          </div>
+        )}
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-96 p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">
-                {selectedAccount ? '계정 수정' : '계정 추가'}
-              </h2>
-              <button
-                onClick={closeModal}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm mb-1">이메일</label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
-                  required
-                  disabled={selectedAccount}
+        <Table
+          columns={columns}
+          dataSource={accounts}
+          rowKey="id"
+          className="w-full"
+          loading={loading}
+          components={{
+            header: {
+              cell: props => (
+                <th 
+                  {...props} 
+                  className="bg-gray-100 text-blue-800 font-medium"
                 />
+              )
+            }
+          }}
+          locale={{
+            emptyText: '계정이 없습니다.'
+          }}
+        />
+
+        {isModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg w-96 p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">
+                  {selectedAccount ? '계정 수정' : '계정 추가'}
+                </h2>
+                <button
+                  onClick={closeModal}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ×
+                </button>
               </div>
 
-              {!selectedAccount && (
-                <>
-                  <div>
-                    <label className="block text-sm mb-1">비밀번호</label>
-                    <input
-                      type="password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
-                      required
-                    />
-                  </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm mb-1">이메일</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
+                    required
+                    disabled={selectedAccount}
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-sm mb-1">비밀번호 확인</label>
-                    <input
-                      type="password"
-                      name="password_confirm"
-                      value={formData.password_confirm}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
-                      required
-                    />
-                  </div>
-                </>
+                {!selectedAccount && (
+                  <>
+                    <div>
+                      <label className="block text-sm mb-1">비밀번호</label>
+                      <input
+                        type="password"
+                        name="password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm mb-1">비밀번호 확인</label>
+                      <input
+                        type="password"
+                        name="password_confirm"
+                        value={formData.password_confirm}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
+                        required
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div>
+                  <label className="block text-sm mb-1">이름</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm mb-1">연락처</label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
+                    required
+                    maxLength={13}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm mb-1">부서</label>
+                  <input
+                    type="text"
+                    name="department"
+                    value={formData.department}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm mb-1">직책</label>
+                  <input
+                    type="text"
+                    name="position"
+                    value={formData.position}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm mb-1">권한 레벨</label>
+                  <select
+                    name="auth_level"
+                    value={formData.auth_level}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
+                  >
+                    <option value={AUTH_LEVELS.INSTRUCTOR}>지도사</option>
+                    <option value={AUTH_LEVELS.ADMIN}>관리자</option>
+                    <option value={AUTH_LEVELS.SUPER_ADMIN}>슈퍼관리자</option>
+                  </select>
+                </div>
+              </div>
+
+              {error && (
+                <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-md text-sm">
+                  {error}
+                </div>
               )}
 
-              <div>
-                <label className="block text-sm mb-1">이름</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm mb-1">연락처</label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
-                  required
-                  maxLength={13}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm mb-1">부서</label>
-                <input
-                  type="text"
-                  name="department"
-                  value={formData.department}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm mb-1">직책</label>
-                <input
-                  type="text"
-                  name="position"
-                  value={formData.position}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm mb-1">권한 레벨</label>
-                <select
-                  name="auth_level"
-                  value={formData.auth_level}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
+              <div className="mt-6 flex justify-end space-x-2">
+                <button
+                  onClick={closeModal}
+                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                  disabled={loading}
                 >
-                  <option value={AUTH_LEVELS.INSTRUCTOR}>지도사</option>
-                  <option value={AUTH_LEVELS.ADMIN}>관리자</option>
-                  <option value={AUTH_LEVELS.SUPER_ADMIN}>슈퍼관리자</option>
-                </select>
+                  취소
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  className="px-4 py-2 bg-[#059669] text-white rounded-md hover:bg-[#047857] disabled:opacity-50"
+                  disabled={loading}
+                >
+                  {loading ? '처리중...' : selectedAccount ? '수정' : '추가'}
+                </button>
               </div>
-            </div>
-
-            {error && (
-              <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-md text-sm">
-                {error}
-              </div>
-            )}
-
-            <div className="mt-6 flex justify-end space-x-2">
-              <button
-                onClick={closeModal}
-                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-                disabled={loading}
-              >
-                취소
-              </button>
-              <button
-                onClick={handleSubmit}
-                className="px-4 py-2 bg-[#059669] text-white rounded-md hover:bg-[#047857] disabled:opacity-50"
-                disabled={loading}
-              >
-                {loading ? '처리중...' : selectedAccount ? '수정' : '추가'}
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Card>
     </div>
   );
 }; 
