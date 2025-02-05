@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { inventoryService } from '../../services/inventoryService';
-import { Card, Button, Table, Space, Popconfirm } from 'antd';
+import { Card, Button, Table, Space, Dropdown, Modal } from 'antd';
+import { EditOutlined, DeleteOutlined, MoreOutlined, CalculatorOutlined } from '@ant-design/icons';
 
 export const ItemManagementPage = () => {
   const [items, setItems] = useState([]);
@@ -309,20 +310,24 @@ export const ItemManagementPage = () => {
     {
       title: '관리',
       key: 'action',
-      render: (_, record) => (
-        <Space>
-          <Button
-            onClick={() => {
+      width: 80,
+      render: (_, record) => {
+        const items = [
+          {
+            key: 'stock',
+            icon: <CalculatorOutlined />,
+            label: '수량조정',
+            onClick: () => {
               setSelectedItem(record);
               setStockAdjustment({ quantity: 0, notes: '' });
               setIsStockModalOpen(true);
-            }}
-            className="!text-blue-800 !border-blue-800 hover:!text-blue-900 hover:!border-blue-900"
-          >
-            수량
-          </Button>
-          <Button
-            onClick={() => {
+            }
+          },
+          {
+            key: 'edit',
+            icon: <EditOutlined />,
+            label: '수정',
+            onClick: () => {
               setSelectedItem(record);
               setFormData({
                 name: record.name,
@@ -337,32 +342,47 @@ export const ItemManagementPage = () => {
                 description: record.description
               });
               setIsModalOpen(true);
-            }}
-            className="!text-blue-800 !border-blue-800 hover:!text-blue-900 hover:!border-blue-900"
-          >
-            수정
-          </Button>
-          <Popconfirm
-            title="재고 품목을 삭제하시겠습니까?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="예"
-            cancelText="아니오"
-            okButtonProps={{ 
-              className: "!bg-blue-800 !border-blue-800 hover:!bg-blue-900 hover:!border-blue-900 !text-white" 
-            }}
-            cancelButtonProps={{ 
-              className: "!text-blue-800 !border-blue-800 hover:!text-blue-900 hover:!border-blue-900" 
-            }}
-          >
-            <Button 
-              danger 
-              className="!bg-red-500 !border-red-500 hover:!bg-red-600 hover:!border-red-600 !text-white"
+            }
+          },
+          {
+            key: 'delete',
+            icon: <DeleteOutlined />,
+            label: '삭제',
+            danger: true,
+            onClick: () => {
+              Modal.confirm({
+                title: '재고 품목 삭제',
+                content: '정말로 이 재고 품목을 삭제하시겠습니까?',
+                okText: '삭제',
+                cancelText: '취소',
+                okButtonProps: { 
+                  className: "!bg-red-500 !border-red-500 hover:!bg-red-600 hover:!border-red-600 !text-white"
+                },
+                cancelButtonProps: { 
+                  className: "!text-blue-800 !border-blue-800 hover:!text-blue-900 hover:!border-blue-900"
+                },
+                onOk: () => handleDelete(record.id)
+              });
+            }
+          }
+        ];
+
+        return (
+          <Space>
+            <Dropdown
+              menu={{ items }}
+              trigger={['click']}
+              placement="bottomRight"
             >
-              삭제
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
+              <Button
+                type="text"
+                icon={<MoreOutlined />}
+                className="text-gray-600 hover:text-gray-800"
+              />
+            </Dropdown>
+          </Space>
+        );
+      }
     },
   ];
 

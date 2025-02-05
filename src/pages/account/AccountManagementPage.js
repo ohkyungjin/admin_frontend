@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { accountService } from '../../services/accountService';
-import { Card, Button, Table, Space, Popconfirm } from 'antd';
+import { Card, Button, Table, Space, Modal, Dropdown } from 'antd';
+import { EditOutlined, DeleteOutlined, MoreOutlined } from '@ant-design/icons';
 
 export const AccountManagementPage = () => {
   const [accounts, setAccounts] = useState([]);
@@ -46,9 +47,13 @@ export const AccountManagementPage = () => {
     try {
       setLoading(true);
       const response = await accountService.getUsers();
-      setAccounts(response);
+      // 응답 데이터가 배열인지 확인하고 처리
+      const accountsData = response?.data?.results || response?.data || [];
+      setAccounts(Array.isArray(accountsData) ? accountsData : []);
     } catch (err) {
+      console.error('계정 목록 조회 오류:', err);
       setError('계정 목록을 불러오는데 실패했습니다.');
+      setAccounts([]); // 에러 시 빈 배열로 초기화
     } finally {
       setLoading(false);
     }
@@ -232,36 +237,55 @@ export const AccountManagementPage = () => {
     {
       title: '관리',
       key: 'action',
-      render: (_, record) => (
-        <Space>
-          <Button
-            onClick={() => openModal(record)}
-            className="!text-blue-800 !border-blue-800 hover:!text-blue-900 hover:!border-blue-900"
-          >
-            수정
-          </Button>
-          <Popconfirm
-            title="계정을 삭제하시겠습니까?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="예"
-            cancelText="아니오"
-            okButtonProps={{ 
-              className: "!bg-blue-800 !border-blue-800 hover:!bg-blue-900 hover:!border-blue-900 !text-white" 
-            }}
-            cancelButtonProps={{ 
-              className: "!text-blue-800 !border-blue-800 hover:!text-blue-900 hover:!border-blue-900" 
-            }}
-          >
-            <Button 
-              danger 
-              className="!bg-red-500 !border-red-500 hover:!bg-red-600 hover:!border-red-600 !text-white"
+      width: 80,
+      render: (_, record) => {
+        const items = [
+          {
+            key: 'edit',
+            icon: <EditOutlined />,
+            label: '수정',
+            onClick: () => openModal(record)
+          },
+          {
+            key: 'delete',
+            icon: <DeleteOutlined />,
+            label: '삭제',
+            danger: true,
+            onClick: () => {
+              Modal.confirm({
+                title: '계정 삭제',
+                content: '정말로 이 계정을 삭제하시겠습니까?',
+                okText: '삭제',
+                cancelText: '취소',
+                okButtonProps: { 
+                  className: "!bg-red-500 !border-red-500 hover:!bg-red-600 hover:!border-red-600 !text-white"
+                },
+                cancelButtonProps: { 
+                  className: "!text-blue-800 !border-blue-800 hover:!text-blue-900 hover:!border-blue-900"
+                },
+                onOk: () => handleDelete(record.id)
+              });
+            }
+          }
+        ];
+
+        return (
+          <Space>
+            <Dropdown
+              menu={{ items }}
+              trigger={['click']}
+              placement="bottomRight"
             >
-              삭제
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
-    },
+              <Button
+                type="text"
+                icon={<MoreOutlined />}
+                className="text-gray-600 hover:text-gray-800"
+              />
+            </Dropdown>
+          </Space>
+        );
+      }
+    }
   ];
 
   return (

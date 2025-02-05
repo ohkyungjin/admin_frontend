@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Table, Button, message, Space, Popconfirm, Card, Input, Tag, Select } from 'antd';
+import { Table, Button, message, Space, Card, Input, Tag, Select, Dropdown, Modal } from 'antd';
 import { ReservationFormModal } from '../../components/reservation/ReservationFormModal';
 import { formatToLocal } from '../../utils/dateUtils';
 import { 
@@ -15,7 +15,8 @@ import {
   changeReservationStatus
 } from '../../services/reservationService';
 import { accountService } from '../../services/accountService';
-import { debounce } from 'lodash';
+import dayjs from 'dayjs';
+import { EditOutlined, DeleteOutlined, MoreOutlined } from '@ant-design/icons';
 
 const { Search } = Input;
 
@@ -63,12 +64,9 @@ export const ReservationManagementPage = () => {
   }, [fetchData]);
 
   // 검색 처리
-  const handleSearch = useCallback(
-    debounce((value) => {
-      setSearchText(value);
-    }, 300),
-    []
-  );
+  const handleSearch = useCallback((value) => {
+    setSearchText(value);
+  }, []);
 
   // 예약 처리
   const handleSubmit = async (values) => {
@@ -95,7 +93,7 @@ export const ReservationManagementPage = () => {
   };
 
   // 예약 삭제
-  const handleDelete = async (id) => {
+  const handleDelete = useCallback(async (id) => {
     try {
       setLoading(true);
       await deleteReservation(id);
@@ -107,11 +105,31 @@ export const ReservationManagementPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchData]);
 
   // 예약 상태 변경
-  const handleStatusChange = async (id, status) => {
+  const handleStatusChange = useCallback(async (id, status) => {
     try {
+      // 진행중이나 완료 상태에서 취소로 변경하려는 경우
+      if (status === 'cancelled') {
+        const reservation = reservations.find(r => r.id === id);
+        if (reservation?.status === 'in_progress' || reservation?.status === 'completed') {
+          const confirmMessage = reservation.status === 'in_progress' 
+            ? '진행중인 예약을 취소하시겠습니까? 이미 진행된 서비스에 대한 처리가 필요할 수 있습니다.'
+            : '완료된 예약을 취소하시겠습니까? 이미 제공된 서비스에 대한 처리가 필요할 수 있습니다.';
+
+          if (!window.confirm(confirmMessage)) {
+            return;
+          }
+
+          // 예약이 실제로 취소되었는지 확인
+          const confirmCancellation = window.confirm('예약이 실제로 취소되었음을 확인하셨습니까?');
+          if (!confirmCancellation) {
+            return;
+          }
+        }
+      }
+
       setLoading(true);
       await changeReservationStatus(id, status);
       message.success('예약 상태가 변경되었습니다.');
@@ -122,7 +140,58 @@ export const ReservationManagementPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchData, reservations]);
+
+  // 예약 상태 자동 업데이트
+  const updateReservationStatuses = useCallback(async () => {
+    const now = dayjs();
+    const updatedReservations = [...reservations];
+    let hasChanges = false;
+
+    for (const reservation of updatedReservations) {
+      const scheduledTime = dayjs(reservation.scheduled_at);
+      const timeDiff = now.diff(scheduledTime, 'hour');
+      
+      // 상태가 '확정'이고 예약 시간이 지난 경우 '진행중'으로 변경
+      if (reservation.status === 'confirmed' && now.isAfter(scheduledTime)) {
+        try {
+          await changeReservationStatus(reservation.id, 'in_progress');
+          reservation.status = 'in_progress';
+          hasChanges = true;
+        } catch (error) {
+          console.error('상태 업데이트 실패:', error);
+        }
+      }
+      // 상태가 '진행중'이고 예약 시간으로부터 2시간이 지난 경우 '완료'로 변경
+      else if (reservation.status === 'in_progress' && timeDiff >= 2) {
+        try {
+          await changeReservationStatus(reservation.id, 'completed');
+          reservation.status = 'completed';
+          hasChanges = true;
+        } catch (error) {
+          console.error('상태 업데이트 실패:', error);
+        }
+      }
+    }
+
+    if (hasChanges) {
+      setReservations(updatedReservations);
+    }
+  }, [reservations]);
+
+  // 1분마다 상태 체크
+  useEffect(() => {
+    const timer = setInterval(() => {
+      updateReservationStatuses();
+    }, 60000); // 60000ms = 1분
+
+    return () => clearInterval(timer);
+  }, [updateReservationStatuses]);
+
+  // 컴포넌트 마운트 시 최초 1회 실행
+  useEffect(() => {
+    updateReservationStatuses();
+  }, [updateReservationStatuses]);
 
   // 테이블 컬럼 정의
   const columns = useMemo(() => [
@@ -163,63 +232,75 @@ export const ReservationManagementPage = () => {
       title: '상태',
       dataIndex: 'status',
       key: 'status',
-      width: 150,
-      render: (status, record) => (
-        <Space>
-          <Tag color={STATUS_COLORS[status]}>
-            {STATUS_CHOICES.find(choice => choice.value === status)?.label || status}
-          </Tag>
-          <Select
-            size="small"
-            value={status}
-            onChange={(newStatus) => handleStatusChange(record.id, newStatus)}
-            style={{ width: 100 }}
-          >
-            {STATUS_CHOICES.map(choice => (
-              <Select.Option key={choice.value} value={choice.value}>
-                {choice.label}
-              </Select.Option>
-            ))}
-          </Select>
-        </Space>
-      ),
+      width: 200,
+      render: (status, record) => {
+        const items = [
+          {
+            key: 'edit',
+            icon: <EditOutlined />,
+            label: '수정',
+            onClick: () => {
+              setSelectedReservation(record);
+              setModalVisible(true);
+            }
+          },
+          {
+            key: 'delete',
+            icon: <DeleteOutlined />,
+            label: '삭제',
+            danger: true,
+            onClick: () => {
+              Modal.confirm({
+                title: '예약 삭제',
+                content: '정말로 이 예약을 삭제하시겠습니까?',
+                okText: '삭제',
+                cancelText: '취소',
+                okButtonProps: { className: BUTTON_STYLES.danger },
+                cancelButtonProps: { className: BUTTON_STYLES.secondary },
+                onOk: () => handleDelete(record.id)
+              });
+            }
+          }
+        ];
+
+        return (
+          <Space>
+            <Tag color={STATUS_COLORS[status]}>
+              {STATUS_CHOICES.find(choice => choice.value === status)?.label || status}
+            </Tag>
+            <Select
+              size="small"
+              value={status}
+              onChange={(newStatus) => handleStatusChange(record.id, newStatus)}
+              style={{ width: 100 }}
+            >
+              {STATUS_CHOICES.map(choice => (
+                <Select.Option key={choice.value} value={choice.value}>
+                  {choice.label}
+                </Select.Option>
+              ))}
+            </Select>
+            <Dropdown
+              menu={{ items }}
+              trigger={['click']}
+              placement="bottomRight"
+            >
+              <Button
+                type="text"
+                icon={<MoreOutlined />}
+                className="text-gray-600 hover:text-gray-800"
+              />
+            </Dropdown>
+          </Space>
+        );
+      },
       filters: STATUS_CHOICES.map(choice => ({
         text: choice.label,
         value: choice.value
       })),
       onFilter: (value, record) => record.status === value
     },
-    {
-      title: '관리',
-      key: 'action',
-      width: 200,
-      render: (_, record) => (
-        <Space>
-          <Button
-            onClick={() => {
-              setSelectedReservation(record);
-              setModalVisible(true);
-            }}
-            className={BUTTON_STYLES.secondary}
-          >
-            수정
-          </Button>
-          <Popconfirm
-            title="예약을 삭제하시겠습니까?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="예"
-            cancelText="아니오"
-            okButtonProps={{ className: BUTTON_STYLES.primary }}
-            cancelButtonProps={{ className: BUTTON_STYLES.secondary }}
-          >
-            <Button className={BUTTON_STYLES.danger}>
-              삭제
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ], [handleStatusChange, handleDelete]);
+  ], [handleDelete, handleStatusChange]);
 
   // 필터링된 예약 목록
   const filteredReservations = useMemo(() => {

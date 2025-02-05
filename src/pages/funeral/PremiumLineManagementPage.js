@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, message, Space, Popconfirm, InputNumber, Card } from 'antd';
+import { Table, Button, Modal, Form, Input, message, Space, InputNumber, Card, Dropdown } from 'antd';
+import { EditOutlined, DeleteOutlined, MoreOutlined } from '@ant-design/icons';
 import {
   getPremiumLines,
   createPremiumLine,
@@ -100,43 +101,60 @@ export const PremiumLineManagementPage = () => {
       render: (price) => price != null ? `${price.toLocaleString()} 원` : '-',
     },
     {
-      title: '작업',
+      title: '관리',
       key: 'action',
-      render: (_, record) => (
-        <Space>
-          <Button
-            type="primary"
-            className="!text-blue-800 !border-blue-800 hover:!text-blue-900 hover:!border-blue-900"
-            onClick={() => {
+      width: 80,
+      render: (_, record) => {
+        const items = [
+          {
+            key: 'edit',
+            icon: <EditOutlined />,
+            label: '수정',
+            onClick: () => {
               setEditingLine(record);
               form.setFieldsValue(record);
               setModalVisible(true);
-            }}
-          >
-            수정
-          </Button>
-          <Popconfirm
-            title="이 프리미엄 라인을 삭제하시겠습니까?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="예"
-            cancelText="아니오"
-            okButtonProps={{ 
-              className: "!bg-blue-800 !border-blue-800 hover:!bg-blue-900 hover:!border-blue-900 !text-white" 
-            }}
-            cancelButtonProps={{ 
-              className: "!text-blue-800 !border-blue-800 hover:!text-blue-900 hover:!border-blue-900" 
-            }}
-          >
-            <Button 
-              danger 
-              type="primary" 
-              className="!bg-red-500 !border-red-500 hover:!bg-red-600 hover:!border-red-600 !text-white"
+            }
+          },
+          {
+            key: 'delete',
+            icon: <DeleteOutlined />,
+            label: '삭제',
+            danger: true,
+            onClick: () => {
+              Modal.confirm({
+                title: '프리미엄 라인 삭제',
+                content: '정말로 이 프리미엄 라인을 삭제하시겠습니까?',
+                okText: '삭제',
+                cancelText: '취소',
+                okButtonProps: { 
+                  className: "!bg-red-500 !border-red-500 hover:!bg-red-600 hover:!border-red-600 !text-white"
+                },
+                cancelButtonProps: { 
+                  className: "!text-blue-800 !border-blue-800 hover:!text-blue-900 hover:!border-blue-900"
+                },
+                onOk: () => handleDelete(record.id)
+              });
+            }
+          }
+        ];
+
+        return (
+          <Space>
+            <Dropdown
+              menu={{ items }}
+              trigger={['click']}
+              placement="bottomRight"
             >
-              삭제
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
+              <Button
+                type="text"
+                icon={<MoreOutlined />}
+                className="text-gray-600 hover:text-gray-800"
+              />
+            </Dropdown>
+          </Space>
+        );
+      }
     },
   ];
 
