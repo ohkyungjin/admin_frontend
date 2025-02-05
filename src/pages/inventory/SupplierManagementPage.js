@@ -250,10 +250,18 @@ export const SupplierManagementPage = () => {
                       type="tel"
                       name="phone"
                       value={formData.phone}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, phone: e.target.value }))
-                      }
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9]/g, '');
+                        let formattedValue = value;
+                        if (value.length > 3 && value.length <= 7) {
+                          formattedValue = value.slice(0, 3) + '-' + value.slice(3);
+                        } else if (value.length > 7) {
+                          formattedValue = value.slice(0, 3) + '-' + value.slice(3, 7) + '-' + value.slice(7, 11);
+                        }
+                        setFormData((prev) => ({ ...prev, phone: formattedValue }));
+                      }}
                       className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
+                      maxLength="13"
                       required
                     />
                   </div>
@@ -263,7 +271,7 @@ export const SupplierManagementPage = () => {
                     <input
                       type="email"
                       name="email"
-                      value={formData.email || '-'}
+                      value={formData.email}
                       onChange={(e) =>
                         setFormData((prev) => ({ ...prev, email: e.target.value }))
                       }

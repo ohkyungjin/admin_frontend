@@ -4,6 +4,7 @@ import { Card, Button, Table } from 'antd';
 
 export const MovementManagementPage = () => {
   const [movements, setMovements] = useState([]);
+  const [filteredMovements, setFilteredMovements] = useState([]);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -21,69 +22,73 @@ export const MovementManagementPage = () => {
     item_search: ''
   });
 
-  // 디바운스된 검색어 상태 추가
-  const [debouncedFilters, setDebouncedFilters] = useState(filters);
-
-  // 검색어 디바운스 처리
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedFilters(filters);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [filters]);
-
   // 품목 목록 조회
   const fetchItems = useCallback(async () => {
     try {
-      console.log('품목 목록 조회 시작');
-      const response = await inventoryService.getItems({
-        search: debouncedFilters.item_search.trim()
-      });
-      console.log('품목 목록 조회 결과:', response);
+      const response = await inventoryService.getItems();
       setItems(Array.isArray(response.results) ? response.results : []);
     } catch (err) {
       console.error('품목 목록 조회 중 오류:', err);
     }
-  }, [debouncedFilters.item_search]);
+  }, []);
 
   // 재고 이동 내역 조회
   const fetchMovements = useCallback(async () => {
     try {
       setLoading(true);
-      console.log('재고 이동 내역 조회 시작 - 필터:', debouncedFilters);
-      const response = await inventoryService.getMovements({
-        ...debouncedFilters,
-        item_search: debouncedFilters.item_search.trim()
-      });
-      console.log('재고 이동 내역 조회 결과:', response);
-      setMovements(Array.isArray(response.results) ? response.results : []);
+      const response = await inventoryService.getMovements();
+      const movementsData = Array.isArray(response.results) ? response.results : [];
+      setMovements(movementsData);
+      setFilteredMovements(movementsData);
     } catch (err) {
       console.error('재고 이동 내역 조회 중 오류:', err);
       setError('재고 이동 내역을 불러오는데 실패했습니다.');
       setMovements([]);
+      setFilteredMovements([]);
     } finally {
       setLoading(false);
     }
-  }, [debouncedFilters]);
+  }, []);
 
   // 초기 데이터 로드
   useEffect(() => {
-    console.log('재고 이동 페이지 마운트 - 초기 데이터 로드');
     fetchItems();
     fetchMovements();
   }, [fetchItems, fetchMovements]);
 
-  // 디바운스된 필터 변경 시 데이터 조회
+  // 클라이언트 사이드 필터링
   useEffect(() => {
-    if (debouncedFilters.item_search) {
-      fetchItems();
-    }
-  }, [debouncedFilters.item_search, fetchItems]);
+    let result = [...movements];
 
-  useEffect(() => {
-    fetchMovements();
-  }, [debouncedFilters, fetchMovements]);
+    // 품목 필터
+    if (filters.item) {
+      result = result.filter(movement => 
+        movement.item === parseInt(filters.item)
+      );
+    }
+
+    // 이동 유형 필터
+    if (filters.movement_type) {
+      result = result.filter(movement => {
+        if (filters.movement_type === 'in') {
+          return movement.quantity > 0;
+        } else if (filters.movement_type === 'out') {
+          return movement.quantity < 0;
+        }
+        return true;
+      });
+    }
+
+    // 품목 검색어 필터
+    if (filters.item_search) {
+      const searchLower = filters.item_search.toLowerCase();
+      result = result.filter(movement => 
+        movement.item_name?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    setFilteredMovements(result);
+  }, [filters, movements]);
 
   // getMovementType 함수를 메모이제이션
   const getMovementType = useCallback((quantity) => {
@@ -97,6 +102,15 @@ export const MovementManagementPage = () => {
       ...prev,
       [name]: value
     }));
+  };
+
+  // 필터 초기화
+  const handleResetFilters = () => {
+    setFilters({
+      item: '',
+      movement_type: '',
+      item_search: ''
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -180,7 +194,7 @@ export const MovementManagementPage = () => {
       <Card className="shadow-lg">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-blue-800">재고 이동 관리</h1>
-          <Button
+          {/* <Button
             type="primary"
             onClick={() => {
               setFormData({
@@ -195,7 +209,7 @@ export const MovementManagementPage = () => {
             className="!bg-blue-800 !border-blue-800 hover:!bg-blue-900 hover:!border-blue-900 !text-white"
           >
             새 재고 이동 등록
-          </Button>
+          </Button> */}
         </div>
 
         {error && (
@@ -206,6 +220,15 @@ export const MovementManagementPage = () => {
 
         {/* 필터 섹션 */}
         <Card className="mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-medium text-blue-800">필터</h3>
+            <Button
+              onClick={handleResetFilters}
+              className="!text-blue-800 !border-blue-800 hover:!text-blue-900 hover:!border-blue-900"
+            >
+              필터 초기화
+            </Button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm mb-1">품목</label>
@@ -249,7 +272,7 @@ export const MovementManagementPage = () => {
 
         <Table
           columns={columns}
-          dataSource={movements}
+          dataSource={filteredMovements}
           rowKey="id"
           className="w-full"
           loading={loading}

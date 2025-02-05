@@ -34,21 +34,31 @@ export const PackageFormModal = ({
   useEffect(() => {
     if (visible && editingPackage) {
       console.log('수정할 패키지 데이터:', editingPackage);
+      
+      // 각 카테고리별 선택된 아이템 매핑
+      const selectedItems = {};
+      categories.forEach(category => {
+        // 해당 카테고리에 선택된 아이템이 있는지 확인
+        const foundItem = editingPackage.items?.find(item => 
+          item.category.id === category.id
+        );
+        // 아이템이 있으면 해당 아이템 ID를, 없으면 빈 문자열("")을 설정
+        selectedItems[category.id] = foundItem ? foundItem.default_item.id : "";
+      });
+
       const formValues = {
         name: editingPackage.name,
         description: editingPackage.description,
         total_price: editingPackage.price,
-        selected_items: editingPackage.items?.reduce((acc, item) => ({
-          ...acc,
-          [item.category.id]: item.default_item.id  // category와 default_item 객체에서 id 추출
-        }), {})
+        selected_items: selectedItems
       };
+      
       console.log('설정할 폼 데이터:', formValues);
       form.setFieldsValue(formValues);
     } else {
       form.resetFields();
     }
-  }, [visible, editingPackage, form]);
+  }, [visible, editingPackage, form, categories]);
 
   const handleCategoryChange = async (categoryId) => {
     try {
@@ -68,18 +78,19 @@ export const PackageFormModal = ({
       console.log('Form values:', values);
       
       const submitData = {
-        ...values,
-        price: values.total_price?.toString(),
-        items_data: Object.entries(values.selected_items || {}).map(([categoryId, itemId]) => ({
-          category_id: parseInt(categoryId),
-          default_item_id: parseInt(itemId),
-          is_required: true
-        })),
-        is_active: true
+        name: values.name,
+        description: values.description,
+        price: values.total_price?.toString() || "0",
+        items_data: Object.entries(values.selected_items || {})
+          .filter(([_, itemId]) => itemId !== "") // 빈 문자열 필터링
+          .map(([categoryId, itemId]) => ({
+            category_id: parseInt(categoryId),
+            default_item_id: parseInt(itemId),
+            is_required: true
+          })),
+        is_active: true,
+        items: []  // 백엔드 요구사항에 맞춰 빈 배열 추가
       };
-
-      delete submitData.selected_items;
-      delete submitData.total_price;
 
       console.log('API request data:', submitData);
       await onSubmit(submitData);
@@ -140,10 +151,13 @@ export const PackageFormModal = ({
               allowClear
               placeholder={`${category.name} 선택`}
               onChange={() => handleCategoryChange(category.id)}
-              options={categoryItems[category.id]?.map(item => ({
-                value: item.id,
-                label: `${item.name} (${item.unit_price}원)`
-              }))}
+              options={[
+                { value: "", label: '없음' },
+                ...(categoryItems[category.id]?.map(item => ({
+                  value: item.id,
+                  label: `${item.name} (${item.unit_price}원)`
+                })) || [])
+              ]}
               className="w-full"
             />
           </Form.Item>
@@ -162,6 +176,10 @@ export const PackageFormModal = ({
             formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
             parser={value => value.replace(/\$\s?|(,*)/g, '')}
             addonAfter="원"
+            onChange={(value) => {
+              console.log('InputNumber onChange value:', value);
+              console.log('InputNumber onChange value type:', typeof value);
+            }}
           />
         </Form.Item>
 

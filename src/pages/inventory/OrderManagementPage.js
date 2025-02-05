@@ -4,6 +4,7 @@ import { Card, Button, Table, message } from 'antd';
 
 export const OrderManagementPage = () => {
   const [orders, setOrders] = useState([]);
+  const [filteredOrders, setFilteredOrders] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -14,9 +15,10 @@ export const OrderManagementPage = () => {
 
   // 필터 상태
   const [filters, setFilters] = useState({
-    status: '',
+    order_date: '',
     supplier: '',
-    search: ''
+    item_name: '',
+    status: ''
   });
 
   // 구매 주문 생성 모달 상태
@@ -46,16 +48,19 @@ export const OrderManagementPage = () => {
   const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await inventoryService.getOrders(filters);
-      setOrders(response.results || []);
+      const response = await inventoryService.getOrders();
+      const ordersData = response.results || [];
+      setOrders(ordersData);
+      setFilteredOrders(ordersData);
     } catch (error) {
       console.error('주문 목록 조회 중 오류:', error);
       setError('주문 목록을 불러오는데 실패했습니다.');
       setOrders([]);
+      setFilteredOrders([]);
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, []);
 
   const fetchSuppliers = useCallback(async () => {
     try {
@@ -351,6 +356,44 @@ export const OrderManagementPage = () => {
     }
   };
 
+  // 필터링 로직
+  useEffect(() => {
+    let result = [...orders];
+
+    // 주문일자 필터
+    if (filters.order_date) {
+      result = result.filter(order => 
+        order.order_date?.startsWith(filters.order_date)
+      );
+    }
+
+    // 공급업체 필터
+    if (filters.supplier) {
+      result = result.filter(order => 
+        order.supplier?.id.toString() === filters.supplier
+      );
+    }
+
+    // 품목명 필터
+    if (filters.item_name) {
+      const searchTerm = filters.item_name.toLowerCase();
+      result = result.filter(order => 
+        order.items_info?.some(item => 
+          item.name.toLowerCase().includes(searchTerm)
+        )
+      );
+    }
+
+    // 상태 필터
+    if (filters.status) {
+      result = result.filter(order => 
+        order.status === filters.status
+      );
+    }
+
+    setFilteredOrders(result);
+  }, [filters, orders]);
+
   // 초기 데이터 로드
   useEffect(() => {
     fetchOrders();
@@ -358,10 +401,15 @@ export const OrderManagementPage = () => {
     fetchSuppliers();
   }, [fetchOrders, fetchItems, fetchSuppliers]);
 
-  // 필터 변경 시 주문 목록 새로고침
-  useEffect(() => {
-    fetchOrders();
-  }, [filters, fetchOrders]);
+  // 필터 초기화
+  const handleResetFilters = () => {
+    setFilters({
+      order_date: '',
+      supplier: '',
+      item_name: '',
+      status: ''
+    });
+  };
 
   return (
     <div className="p-6">
@@ -389,22 +437,24 @@ export const OrderManagementPage = () => {
 
         {/* 필터 섹션 */}
         <Card className="mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-medium text-blue-800">필터</h3>
+            <Button
+              onClick={handleResetFilters}
+              className="!text-blue-800 !border-blue-800 hover:!text-blue-900 hover:!border-blue-900"
+            >
+              필터 초기화
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm mb-1">상태</label>
-              <select
-                value={filters.status}
-                onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+              <label className="block text-sm mb-1">주문일자</label>
+              <input
+                type="date"
+                value={filters.order_date}
+                onChange={(e) => setFilters(prev => ({ ...prev, order_date: e.target.value }))}
                 className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
-              >
-                <option value="">전체</option>
-                <option value="draft">임시저장</option>
-                <option value="pending">승인대기</option>
-                <option value="approved">승인완료</option>
-                <option value="ordered">발주완료</option>
-                <option value="received">입고완료</option>
-                <option value="cancelled">취소</option>
-              </select>
+              />
             </div>
             <div>
               <label className="block text-sm mb-1">공급업체</label>
@@ -422,14 +472,30 @@ export const OrderManagementPage = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm mb-1">검색</label>
+              <label className="block text-sm mb-1">품목명</label>
               <input
                 type="text"
-                value={filters.search}
-                onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                placeholder="주문번호 또는 메모로 검색"
+                value={filters.item_name}
+                onChange={(e) => setFilters(prev => ({ ...prev, item_name: e.target.value }))}
+                placeholder="품목명으로 검색"
                 className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
               />
+            </div>
+            <div>
+              <label className="block text-sm mb-1">상태</label>
+              <select
+                value={filters.status}
+                onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                className="w-full px-3 py-2 bg-[#F8F9FA] border border-gray-200 rounded-md"
+              >
+                <option value="">전체</option>
+                <option value="draft">임시저장</option>
+                <option value="pending">승인대기</option>
+                <option value="approved">승인완료</option>
+                <option value="ordered">발주완료</option>
+                <option value="received">입고완료</option>
+                <option value="cancelled">취소</option>
+              </select>
             </div>
           </div>
         </Card>
@@ -492,7 +558,7 @@ export const OrderManagementPage = () => {
               ),
             },
           ]}
-          dataSource={orders}
+          dataSource={filteredOrders}
           rowKey="id"
           loading={loading}
           components={{

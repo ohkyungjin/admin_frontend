@@ -14,6 +14,7 @@ import { DashboardLayout } from './components/layout/DashboardLayout';
 import { PackageManagementPage } from './pages/funeral/PackageManagementPage';
 import { PremiumLineManagementPage } from './pages/funeral/PremiumLineManagementPage';
 import { AdditionalOptionsPage } from './pages/funeral/AdditionalOptionsPage';
+import { ReservationManagementPage } from './pages/reservation/ReservationManagementPage';
 
 const PrivateRoute = ({ children }) => {
   const isAuthenticated = !!localStorage.getItem('access_token');
@@ -109,6 +110,14 @@ function App() {
           element={
             <PrivateRoute>
               <AdditionalOptionsPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/reservations"
+          element={
+            <PrivateRoute>
+              <ReservationManagementPage />
             </PrivateRoute>
           }
         />

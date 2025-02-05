@@ -71,25 +71,27 @@ export const PackageManagementPage = () => {
   // 패키지 생성/수정 처리
   const handleSubmit = async (values) => {
     try {
-      // 선택된 품목 정보 가져오기
-      const selectedItems = values.selected_items || {};
-      const items = await Promise.all(
-        Object.entries(selectedItems).map(async ([categoryId, itemId]) => {
-          const itemResponse = await inventoryService.getItems({ id: itemId });
-          return itemResponse?.results?.[0];
-        })
-      );
+      console.log('PackageManagementPage handleSubmit values:', values);
+      console.log('total_price type:', typeof values.total_price);
+      console.log('total_price value:', values.total_price);
 
       // 패키지 데이터 구성
       const packageData = {
-        ...values,
-        items: items.filter(Boolean).map(item => ({
-          id: item.id,
-          category_id: item.category,
-          quantity: 1
-        })),
-        price: values.total_price
+        name: values.name,
+        description: values.description,
+        price: values.price || values.total_price?.toString() || "0",
+        items_data: Object.entries(values.selected_items || {})
+          .filter(([_, itemId]) => itemId !== "") // 빈 문자열 필터링
+          .map(([categoryId, itemId]) => ({
+            category_id: parseInt(categoryId),
+            default_item_id: parseInt(itemId),
+            is_required: true
+          })),
+        is_active: true,
+        items: []
       };
+
+      console.log('최종 전송 데이터:', packageData);
 
       if (editingPackage) {
         await updatePackage(editingPackage.id, packageData);

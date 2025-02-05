@@ -4,6 +4,7 @@ import { Card, Button, Table, Space, Popconfirm } from 'antd';
 
 export const ItemManagementPage = () => {
   const [items, setItems] = useState([]);
+  const [filteredItems, setFilteredItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -82,7 +83,7 @@ export const ItemManagementPage = () => {
   const fetchItems = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await inventoryService.getItems(filters);
+      const response = await inventoryService.getItems();
       setItems(Array.isArray(response.results) ? response.results : []);
     } catch (err) {
       console.error('Error fetching items:', err);
@@ -91,7 +92,7 @@ export const ItemManagementPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, []);
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -111,19 +112,51 @@ export const ItemManagementPage = () => {
     }
   }, []);
 
+  // 필터링 로직
+  useEffect(() => {
+    let result = [...items];
+
+    // 카테고리 필터
+    if (filters.category) {
+      result = result.filter(item => 
+        item.category === parseInt(filters.category)
+      );
+    }
+
+    // 공급업체 필터
+    if (filters.supplier) {
+      result = result.filter(item => 
+        item.supplier === parseInt(filters.supplier)
+      );
+    }
+
+    // 검색어 필터
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      result = result.filter(item => 
+        item.name.toLowerCase().includes(searchLower) ||
+        item.code.toLowerCase().includes(searchLower)
+      );
+    }
+
+    setFilteredItems(result);
+  }, [filters, items]);
+
+  // 초기 데이터 로드
   useEffect(() => {
     fetchItems();
     fetchCategories();
     fetchSuppliers();
   }, [fetchItems, fetchCategories, fetchSuppliers]);
 
-  useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
-
-  useEffect(() => {
-    fetchItems();
-  }, [filters, fetchItems]);
+  // 필터 초기화
+  const handleResetFilters = () => {
+    setFilters({
+      category: '',
+      supplier: '',
+      search: ''
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -370,6 +403,15 @@ export const ItemManagementPage = () => {
 
         {/* 필터 섹션 */}
         <Card className="mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-medium text-blue-800">필터</h3>
+            <Button
+              onClick={handleResetFilters}
+              className="!text-blue-800 !border-blue-800 hover:!text-blue-900 hover:!border-blue-900"
+            >
+              필터 초기화
+            </Button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm mb-1">카테고리</label>
@@ -416,7 +458,7 @@ export const ItemManagementPage = () => {
 
         <Table
           columns={columns}
-          dataSource={items}
+          dataSource={filteredItems}
           rowKey="id"
           className="w-full"
           loading={loading}

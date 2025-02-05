@@ -11,6 +11,7 @@ export const DashboardLayout = ({ children }) => {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [isFuneralOpen, setIsFuneralOpen] = useState(false);
+  const [isReservationOpen, setIsReservationOpen] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -74,7 +75,14 @@ export const DashboardLayout = ({ children }) => {
 
   const menuItems = [
     { name: '대시보드', path: '/dashboard', icon: '📊' },
-    { name: '예약 관리', path: '/reservations', icon: '📅' },
+    {
+      name: '예약 관리',
+      icon: '📅',
+      subItems: [
+        { name: '예약 현황', path: '/reservations', icon: '📆' },
+        { name: '추모실 관리', path: '/reservations/memorial-rooms', icon: '🏛️' },
+      ],
+    },
     {
       name: '재고 관리',
       icon: '📦',
@@ -175,10 +183,12 @@ export const DashboardLayout = ({ children }) => {
                       onClick={() => {
                         if (item.name === '재고 관리') setIsInventoryOpen(!isInventoryOpen);
                         if (item.name === '장례 서비스') setIsFuneralOpen(!isFuneralOpen);
+                        if (item.name === '예약 관리') setIsReservationOpen(!isReservationOpen);
                       }}
                       className={`flex justify-between items-center w-full px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md ${
                         (item.name === '재고 관리' && location.pathname.startsWith('/inventory')) ||
                         (item.name === '장례 서비스' && location.pathname.startsWith('/funeral')) ||
+                        (item.name === '예약 관리' && location.pathname.startsWith('/reservations')) ||
                         (item.name === '추모 관리' && location.pathname.startsWith('/memorials'))
                           ? 'bg-gray-100'
                           : ''
@@ -190,13 +200,15 @@ export const DashboardLayout = ({ children }) => {
                       </div>
                       <span>
                         {(item.name === '재고 관리' && isInventoryOpen) ||
-                        (item.name === '장례 서비스' && isFuneralOpen)
+                        (item.name === '장례 서비스' && isFuneralOpen) ||
+                        (item.name === '예약 관리' && isReservationOpen)
                           ? '▼'
                           : '▲'}
                       </span>
                     </Button>
                     {((item.name === '재고 관리' && isInventoryOpen) ||
-                      (item.name === '장례 서비스' && isFuneralOpen)) && (
+                      (item.name === '장례 서비스' && isFuneralOpen) ||
+                      (item.name === '예약 관리' && isReservationOpen)) && (
                       <div className="ml-8 space-y-1 mt-1">
                         {item.subItems.map((subItem) => (
                           <Button
