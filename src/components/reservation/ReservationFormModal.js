@@ -20,25 +20,6 @@ export const ReservationFormModal = ({
   const [memorialRooms, setMemorialRooms] = useState([]);
   const [fetchLoading, setFetchLoading] = useState(false);
 
-  // 패키지와 추모실 데이터 조회 (새 예약일 때만)
-  const fetchData = async () => {
-    try {
-      setFetchLoading(true);
-      const [packagesResponse, roomsResponse] = await Promise.all([
-        axios.get('/funeral/packages/'),
-        axios.get('/reservations/memorial-rooms/')
-      ]);
-
-      setPackages(packagesResponse.data?.results || []);
-      setMemorialRooms(roomsResponse.data?.results || []);
-    } catch (error) {
-      console.error('데이터 조회 오류:', error);
-      message.error('패키지와 추모실 정보를 불러오는데 실패했습니다.');
-    } finally {
-      setFetchLoading(false);
-    }
-  };
-
   // 모달이 열릴 때 데이터 처리
   useEffect(() => {
     if (visible) {
@@ -46,7 +27,11 @@ export const ReservationFormModal = ({
       fetchData();
       
       if (initialData) {
-        console.log(initialData);
+        console.log('수정 모달 열림 - 초기 데이터:', initialData);
+        console.log('패키지 ID:', initialData.package_id);
+        console.log('추모실 ID:', initialData.memorial_room_id);
+        console.log('담당자:', initialData.assigned_staff_name);
+
         form.setFieldsValue({
           // 고객 정보
           customer_name: initialData.customer.name,
@@ -67,18 +52,19 @@ export const ReservationFormModal = ({
           pet_memo: initialData.pet.memo,
 
           // 예약 정보
-          package: initialData.package_name,
-          memorial_room: initialData.memorial_room_name,
+          package_id: initialData.package_id,
+          memorial_room_id: initialData.memorial_room_id,
           scheduled_at: dayjs(initialData.scheduled_at),
           assigned_staff: initialData.assigned_staff_name,
           is_emergency: initialData.is_emergency,
-          visit_route: VISIT_ROUTE_CHOICES.find(
-            choice => choice.value === initialData.visit_route
-          ),
+          visit_route: initialData.visit_route,
           referral_hospital: initialData.referral_hospital,
           need_death_certificate: initialData.need_death_certificate,
           custom_requests: initialData.custom_requests
         });
+
+        // 폼 설정 후 현재 값 확인
+        console.log('폼 설정 후 현재 값:', form.getFieldsValue());
       } else {
         // 새 예약 모드: 폼 초기화
         form.resetFields();
@@ -86,7 +72,7 @@ export const ReservationFormModal = ({
           is_emergency: false,
           need_death_certificate: false,
           scheduled_at: dayjs(),
-          visit_route: VISIT_ROUTE_CHOICES.find(choice => choice.value === 'internet'),
+          visit_route: 'internet',
           pet_species: 'dog',
           pet_gender: 'male',
           death_date: null,
@@ -98,10 +84,34 @@ export const ReservationFormModal = ({
     }
   }, [visible, initialData, form]);
 
+  // 패키지와 추모실 데이터 조회
+  const fetchData = async () => {
+    try {
+      setFetchLoading(true);
+      const [packagesResponse, roomsResponse] = await Promise.all([
+        axios.get('/funeral/packages/'),
+        axios.get('/reservations/memorial-rooms/')
+      ]);
+
+      const packagesData = packagesResponse.data?.results || [];
+      const roomsData = roomsResponse.data?.results || [];
+
+      console.log('조회된 패키지 목록:', packagesData);
+      console.log('조회된 추모실 목록:', roomsData);
+
+      setPackages(packagesData);
+      setMemorialRooms(roomsData);
+    } catch (error) {
+      console.error('데이터 조회 오류:', error);
+      message.error('패키지와 추모실 정보를 불러오는데 실패했습니다.');
+    } finally {
+      setFetchLoading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      console.log('폼 데이터:', values);
       
       // 서버 형식에 맞게 데이터 변환
       const formattedValues = {
@@ -123,13 +133,13 @@ export const ReservationFormModal = ({
           death_reason: values.death_reason,
           memo: values.pet_memo || ''
         },
-        package: values.package,
-        memorial_room: values.memorial_room,
+        package_id: values.package_id || null,
+        memorial_room_id: values.memorial_room_id || null,
         scheduled_at: dayjs(values.scheduled_at).format('YYYY-MM-DDTHH:mm:ss[Z]'),
         status: initialData?.status || 'pending',
-        assigned_staff: initialData ? initialData.assigned_staff : values.assigned_staff,
+        assigned_staff: values.assigned_staff_id,
         is_emergency: values.is_emergency || false,
-        visit_route: values.visit_route?.value || 'internet',
+        visit_route: values.visit_route,
         referral_hospital: values.referral_hospital || '',
         need_death_certificate: values.need_death_certificate || false,
         custom_requests: values.custom_requests || ''
@@ -222,7 +232,6 @@ export const ReservationFormModal = ({
             <Form.Item
               name="pet_species"
               label="종류"
-              rules={[{ required: true, message: '종류를 선택해주세요' }]}
             >
               <Select>
                 <Option value="dog">강아지</Option>
@@ -234,7 +243,6 @@ export const ReservationFormModal = ({
             <Form.Item
               name="pet_breed"
               label="품종"
-              rules={[{ required: true, message: '품종을 입력해주세요' }]}
             >
               <Input placeholder="품종 입력" />
             </Form.Item>
@@ -242,7 +250,6 @@ export const ReservationFormModal = ({
             <Form.Item
               name="pet_gender"
               label="성별"
-              rules={[{ required: true, message: '성별을 선택해주세요' }]}
             >
               <Select>
                 <Option value="male">수컷</Option>
@@ -253,7 +260,6 @@ export const ReservationFormModal = ({
             <Form.Item
               name="pet_age"
               label="나이"
-              rules={[{ required: true, message: '나이를 입력해주세요' }]}
             >
               <InputNumber min={0} max={100} className="w-full" />
             </Form.Item>
@@ -261,7 +267,6 @@ export const ReservationFormModal = ({
             <Form.Item
               name="pet_weight"
               label="몸무게 (kg)"
-              rules={[{ required: true, message: '몸무게를 입력해주세요' }]}
             >
               <InputNumber min={0} max={100} step={0.1} className="w-full" />
             </Form.Item>
@@ -269,7 +274,6 @@ export const ReservationFormModal = ({
             <Form.Item
               name="death_date"
               label="사망일시"
-              rules={[{ required: true, message: '사망일시를 선택해주세요' }]}
             >
               <DatePicker
                 showTime
@@ -282,7 +286,6 @@ export const ReservationFormModal = ({
             <Form.Item
               name="death_reason"
               label="사망원인"
-              rules={[{ required: true, message: '사망원인을 선택해주세요' }]}
             >
               <Select placeholder="사망원인 선택">
                 {DEATH_REASON_CHOICES.map(reason => (
@@ -306,7 +309,7 @@ export const ReservationFormModal = ({
           <h3 className="text-lg font-semibold text-blue-800 mb-4">예약 정보</h3>
           <div className="grid grid-cols-2 gap-4">
             <Form.Item
-              name="package"
+              name="package_id"
               label="패키지"
             >
               <Select 
@@ -316,7 +319,7 @@ export const ReservationFormModal = ({
                 disabled={loading}
               >
                 {packages.map(pkg => (
-                  <Option key={pkg.name} value={pkg.name}>
+                  <Option key={pkg.id} value={pkg.id}>
                     {pkg.name} ({pkg.price?.toLocaleString()}원)
                   </Option>
                 ))}
@@ -324,9 +327,8 @@ export const ReservationFormModal = ({
             </Form.Item>
 
             <Form.Item
-              name="memorial_room"
+              name="memorial_room_id"
               label="추모관"
-              rules={[{ required: true, message: '추모관을 선택해주세요' }]}
             >
               <Select 
                 placeholder="추모관 선택" 
@@ -334,7 +336,7 @@ export const ReservationFormModal = ({
                 disabled={loading}
               >
                 {memorialRooms.map(room => (
-                  <Option key={room.name} value={room.name}>
+                  <Option key={room.id} value={room.id}>
                     {room.name}
                   </Option>
                 ))}
@@ -344,7 +346,6 @@ export const ReservationFormModal = ({
             <Form.Item
               name="scheduled_at"
               label="예약일시"
-              rules={[{ required: true, message: '예약일시를 선택해주세요' }]}
             >
               <DatePicker
                 showTime
@@ -357,7 +358,6 @@ export const ReservationFormModal = ({
             <Form.Item
               name="assigned_staff"
               label="담당자"
-              rules={[{ required: true, message: '담당자를 선택해주세요' }]}
             >
               <Select placeholder="담당자 선택">
                 {staff.map(person => (
@@ -377,13 +377,14 @@ export const ReservationFormModal = ({
             <Form.Item
               label="방문 경로"
               name="visit_route"
-              rules={[{ required: true, message: '방문 경로를 선택해주세요' }]}
             >
-              <Select
-                placeholder="방문 경로 선택"
-                options={VISIT_ROUTE_CHOICES}
-                labelInValue
-              />
+              <Select placeholder="방문 경로 선택">
+                {VISIT_ROUTE_CHOICES.map(choice => (
+                  <Option key={choice.value} value={choice.value}>
+                    {choice.label}
+                  </Option>
+                ))}
+              </Select>
             </Form.Item>
 
             <Form.Item

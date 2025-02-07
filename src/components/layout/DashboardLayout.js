@@ -103,10 +103,10 @@ export const DashboardLayout = ({ children }) => {
         { name: '추가 옵션', path: '/funeral/additional-options', icon: '➕' },
       ],
     },
-    { name: '추모 관리', path: '/memorials', icon: '💐' },
     { name: '계정 관리', path: '/account/management', icon: '👥' },
     { name: '시스템 설정', path: '/settings', icon: '⚙️' },
   ];
+
 
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
