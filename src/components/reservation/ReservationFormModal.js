@@ -1,417 +1,529 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Form, Input, Select, DatePicker, InputNumber, Checkbox, Divider, message } from 'antd';
-import { VISIT_ROUTE_CHOICES, DEATH_REASON_CHOICES, BUTTON_STYLES } from '../../constants/reservation';
+import { Modal, Form, Input, Select, DatePicker, Spin, message, Button, InputNumber, Checkbox, Alert } from 'antd';
 import dayjs from 'dayjs';
-import axios from 'axios';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
+import { 
+  VISIT_ROUTE_CHOICES,
+  DEATH_REASON_CHOICES,
+  PET_SPECIES,
+  PET_GENDERS,
+} from '../../constants/reservation';
+import { reservationService } from '../../services/reservationService';
+import { memorialRoomService } from '../../services/memorialRoomService';
+import { getPackages } from '../../services/funeralService';
+import { accountService } from '../../services/accountService';
 
-const { TextArea } = Input;
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
 const { Option } = Select;
+const { TextArea } = Input;
 
-export const ReservationFormModal = ({
-  visible,
-  loading,
-  onCancel,
-  onSubmit,
-  initialData,
-  staff
-}) => {
+export const ReservationFormModal = ({ visible, onCancel, reservationId, reservation, onSuccess }) => {
   const [form] = Form.useForm();
-  const [packages, setPackages] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [memorialRooms, setMemorialRooms] = useState([]);
-  const [fetchLoading, setFetchLoading] = useState(false);
+  const [packages, setPackages] = useState([]);
+  const [staffs, setStaffs] = useState([]);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState(null);
 
-  // 모달이 열릴 때 데이터 처리
-  useEffect(() => {
-    if (visible) {
-      // 항상 패키지와 추모실 데이터를 불러옴
-      fetchData();
-      
-      if (initialData) {
-        console.log('수정 모달 열림 - 초기 데이터:', initialData);
-        console.log('패키지 ID:', initialData.package_id);
-        console.log('추모실 ID:', initialData.memorial_room_id);
-        console.log('담당자:', initialData.assigned_staff_name);
+  // 예약 가능 여부 체크
+  const checkAvailability = async (values) => {
+    if (!values.scheduled_at || !values.memorial_room_id) return;
 
-        form.setFieldsValue({
-          // 고객 정보
-          customer_name: initialData.customer.name,
-          customer_phone: initialData.customer.phone,
-          customer_email: initialData.customer.email,
-          customer_address: initialData.customer.address,
-          customer_memo: initialData.customer.memo,
-
-          // 반려동물 정보
-          pet_name: initialData.pet.name,
-          pet_species: initialData.pet.species,
-          pet_breed: initialData.pet.breed,
-          pet_age: initialData.pet.age,
-          pet_weight: initialData.pet.weight,
-          pet_gender: initialData.pet.gender,
-          death_date: initialData.pet.death_date ? dayjs(initialData.pet.death_date) : null,
-          death_reason: initialData.pet.death_reason,
-          pet_memo: initialData.pet.memo,
-
-          // 예약 정보
-          package_id: initialData.package_id,
-          memorial_room_id: initialData.memorial_room_id,
-          scheduled_at: dayjs(initialData.scheduled_at),
-          assigned_staff: initialData.assigned_staff_name,
-          is_emergency: initialData.is_emergency,
-          visit_route: initialData.visit_route,
-          referral_hospital: initialData.referral_hospital,
-          need_death_certificate: initialData.need_death_certificate,
-          custom_requests: initialData.custom_requests
-        });
-
-        // 폼 설정 후 현재 값 확인
-        console.log('폼 설정 후 현재 값:', form.getFieldsValue());
-      } else {
-        // 새 예약 모드: 폼 초기화
-        form.resetFields();
-        form.setFieldsValue({
-          is_emergency: false,
-          need_death_certificate: false,
-          scheduled_at: dayjs(),
-          visit_route: 'internet',
-          pet_species: 'dog',
-          pet_gender: 'male',
-          death_date: null,
-          death_reason: '',
-          pet_weight: 0,
-          pet_age: 0
-        });
-      }
-    }
-  }, [visible, initialData, form]);
-
-  // 패키지와 추모실 데이터 조회
-  const fetchData = async () => {
     try {
-      setFetchLoading(true);
-      const [packagesResponse, roomsResponse] = await Promise.all([
-        axios.get('/funeral/packages/'),
-        axios.get('/reservations/memorial-rooms/')
-      ]);
+      setCheckingAvailability(true);
+      setAvailabilityError(null);
 
-      const packagesData = packagesResponse.data?.results || [];
-      const roomsData = roomsResponse.data?.results || [];
+      const response = await reservationService.checkAvailability({
+        memorial_room_id: values.memorial_room_id,
+        scheduled_at: values.scheduled_at.toISOString(),
+        duration_hours: 2,
+        exclude_reservation_id: reservationId
+      });
 
-      console.log('조회된 패키지 목록:', packagesData);
-      console.log('조회된 추모실 목록:', roomsData);
-
-      setPackages(packagesData);
-      setMemorialRooms(roomsData);
+      if (response.is_available) {
+        message.success('선택한 시간에 예약 가능합니다.');
+        setAvailabilityError(null);
+      } else if (response.conflicting_reservation) {
+        if (reservationId && response.conflicting_reservation.id === reservationId) {
+          setAvailabilityError(null);
+          return;
+        }
+        const conflictTime = dayjs(response.conflicting_reservation.scheduled_at).format('YYYY-MM-DD HH:mm');
+        setAvailabilityError(
+          `선택한 시간에는 예약할 수 없습니다.\n해당 시간에 이미 예약이 있습니다. (예약번호: #${response.conflicting_reservation.id}, 시작시간: ${conflictTime})`
+        );
+      }
     } catch (error) {
-      console.error('데이터 조회 오류:', error);
-      message.error('패키지와 추모실 정보를 불러오는데 실패했습니다.');
+      setAvailabilityError(error);
     } finally {
-      setFetchLoading(false);
+      setCheckingAvailability(false);
     }
   };
 
-  const handleSubmit = async () => {
+  // 날짜 또는 추모실 선택 시 예약 가능 여부 체크
+  const handleScheduleChange = async () => {
+    const values = await form.validateFields(['scheduled_at', 'memorial_room_id'])
+      .catch(() => null);
+    
+    if (values) {
+      await checkAvailability(values);
+    }
+  };
+
+  // 시간 선택 제한
+  const getDisabledTime = () => {
+    const now = dayjs();
+    const currentDate = form.getFieldValue('scheduled_at');
+    
+    // 오늘 날짜인 경우 현재 시간 이전 비활성화
+    if (currentDate && currentDate.format('YYYY-MM-DD') === now.format('YYYY-MM-DD')) {
+      return {
+        disabledHours: () => Array.from({ length: now.hour() }, (_, i) => i),
+        disabledMinutes: (selectedHour) => {
+          if (selectedHour === now.hour()) {
+            return Array.from({ length: now.minute() + 1 }, (_, i) => i);
+          }
+          return [];
+        }
+      };
+    }
+    return {};
+  };
+
+  // 목록 데이터 조회
+  const fetchOptions = async () => {
+    try {
+      const [roomsResponse, packagesResponse, staffsResponse] = await Promise.all([
+        memorialRoomService.getRooms(),
+        getPackages(),
+        accountService.getUsers()
+      ]);
+
+      setMemorialRooms(roomsResponse.results || []);
+      setPackages(packagesResponse.data?.results || []);
+      setStaffs(staffsResponse.data?.results || []);
+    } catch (error) {
+      console.error('옵션 목록 조회 오류:', error);
+      message.error('옵션 목록을 불러오는데 실패했습니다.');
+    }
+  };
+
+  useEffect(() => {
+    if (visible) {
+      fetchOptions();
+      if (reservationId && reservation) {
+        form.setFieldsValue({
+          // 예약 정보
+          scheduled_at: dayjs(reservation.scheduled_at),
+          status: reservation.status,
+          is_emergency: reservation.is_emergency,
+          visit_route: reservation.visit_route,
+          referral_hospital: reservation.referral_hospital,
+          need_death_certificate: reservation.need_death_certificate,
+          custom_requests: reservation.custom_requests,
+          memorial_room_id: reservation.memorial_room?.id || reservation.memorial_room_id,
+          package_id: reservation.package?.id || reservation.package_id,
+          assigned_staff_id: reservation.assigned_staff?.id || reservation.assigned_staff_id,
+          
+          // 고객 정보
+          customer_name: reservation.customer?.name,
+          customer_phone: reservation.customer?.phone,
+          customer_email: reservation.customer?.email,
+          customer_address: reservation.customer?.address,
+          
+          // 반려동물 정보
+          pet_name: reservation.pet?.name,
+          pet_species: reservation.pet?.species,
+          pet_breed: reservation.pet?.breed,
+          pet_gender: reservation.pet?.gender,
+          pet_age: reservation.pet?.age,
+          pet_weight: reservation.pet?.weight,
+          is_neutered: reservation.pet?.is_neutered,
+          death_datetime: reservation.pet?.death_date ? dayjs(reservation.pet.death_date) : undefined,
+          death_reason: reservation.pet?.death_reason,
+          special_notes: reservation.pet?.special_notes,
+        });
+      } else {
+        form.resetFields();
+      }
+    }
+  }, [visible, reservationId, reservation, form]);
+
+  const handleSave = async () => {
     try {
       const values = await form.validateFields();
       
-      // 서버 형식에 맞게 데이터 변환
-      const formattedValues = {
-        customer: {
-          name: values.customer_name,
-          phone: values.customer_phone,
-          email: values.customer_email || '',
-          address: values.customer_address || '',
-          memo: values.customer_memo || ''
-        },
-        pet: {
-          name: values.pet_name,
-          species: values.pet_species,
-          breed: values.pet_breed,
-          age: parseInt(values.pet_age) || 0,
-          weight: parseFloat(values.pet_weight) || 0,
-          gender: values.pet_gender,
-          death_date: values.death_date ? dayjs(values.death_date).format('YYYY-MM-DDTHH:mm:ss[Z]') : null,
-          death_reason: values.death_reason,
-          memo: values.pet_memo || ''
-        },
-        package_id: values.package_id || null,
-        memorial_room_id: values.memorial_room_id || null,
-        scheduled_at: dayjs(values.scheduled_at).format('YYYY-MM-DDTHH:mm:ss[Z]'),
-        status: initialData?.status || 'pending',
-        assigned_staff: values.assigned_staff_id,
-        is_emergency: values.is_emergency || false,
-        visit_route: values.visit_route,
-        referral_hospital: values.referral_hospital || '',
-        need_death_certificate: values.need_death_certificate || false,
-        custom_requests: values.custom_requests || ''
-      };
-
-      console.log('서버로 전송될 데이터:', formattedValues);
-      await onSubmit(formattedValues);
-      
-      // 성공적으로 제출된 후에만 폼 초기화 및 모달 닫기
-      if (onCancel) {
-        onCancel();
+      // 이미 체크된 예약 가능 여부 확인
+      if (availabilityError) {
+        message.error(availabilityError);
+        return;
       }
+
+      // 확인 메시지 표시
+      Modal.confirm({
+        title: reservationId ? '예약 수정' : '새 예약 등록',
+        content: reservationId 
+          ? `예약을 수정하시겠습니까?\n\n고객명: ${values.customer_name}\n반려동물: ${values.pet_name}\n예약일시: ${values.scheduled_at.format('YYYY-MM-DD HH:mm')}`
+          : `새 예약을 등록하시겠습니까?\n\n고객명: ${values.customer_name}\n반려동물: ${values.pet_name}\n예약일시: ${values.scheduled_at.format('YYYY-MM-DD HH:mm')}`,
+        okText: '확인',
+        cancelText: '취소',
+        okButtonProps: {
+          className: "!bg-blue-800 !border-blue-800 hover:!bg-blue-900 hover:!border-blue-900 !text-white"
+        },
+        onOk: async () => {
+          setLoading(true);
+          const formData = {
+            scheduled_at: values.scheduled_at.toISOString(),
+            status: values.status,
+            is_emergency: values.is_emergency,
+            visit_route: values.visit_route,
+            referral_hospital: values.referral_hospital,
+            need_death_certificate: values.need_death_certificate,
+            custom_requests: values.custom_requests,
+            
+            customer: {
+              name: values.customer_name,
+              phone: values.customer_phone,
+              email: values.customer_email,
+              address: values.customer_address,
+            },
+            
+            pet: {
+              name: values.pet_name,
+              species: values.pet_species,
+              breed: values.pet_breed,
+              gender: values.pet_gender,
+              age: values.pet_age,
+              weight: values.pet_weight,
+              is_neutered: values.is_neutered,
+              death_date: values.death_datetime?.toISOString(),
+              death_reason: values.death_reason,
+              special_notes: values.special_notes,
+            },
+            
+            memorial_room_id: values.memorial_room_id,
+            package_id: values.package_id,
+            assigned_staff_id: values.assigned_staff_id,
+          };
+
+          try {
+            if (reservationId) {
+              await reservationService.updateReservation(reservationId, formData);
+              message.success('예약이 수정되었습니다.');
+            } else {
+              await reservationService.createReservation(formData);
+              message.success('예약이 등록되었습니다.');
+            }
+            
+            onSuccess?.();
+            onCancel();
+          } catch (error) {
+            console.error('예약 저장 오류:', error);
+            message.error(error.message || '예약 저장에 실패했습니다.');
+          } finally {
+            setLoading(false);
+          }
+        },
+      });
     } catch (error) {
-      console.error('폼 제출 오류:', error);
-      message.error('필수 항목을 모두 입력해주세요.');
+      console.error('폼 검증 오류:', error);
     }
   };
 
   return (
     <Modal
-      title={initialData ? "예약 수정" : "새 예약 등록"}
+      title={reservationId ? "예약 수정" : "새 예약 등록"}
       open={visible}
-      onOk={handleSubmit}
       onCancel={onCancel}
+      footer={[
+        <Button key="cancel" onClick={onCancel}>
+          취소
+        </Button>,
+        <Button 
+          key="submit" 
+          type="primary"
+          onClick={handleSave}
+          loading={loading}
+          disabled={!!availabilityError}
+          className="!bg-blue-800 !border-blue-800 hover:!bg-blue-900 hover:!border-blue-900"
+        >
+          저장
+        </Button>
+      ]}
       width={800}
-      confirmLoading={loading || fetchLoading}
-      okButtonProps={{ className: BUTTON_STYLES.primary }}
-      cancelButtonProps={{ className: BUTTON_STYLES.secondary }}
     >
-      <Form
-        form={form}
-        layout="vertical"
-        initialValues={{
-          pet_species: 'dog',
-          pet_gender: 'male',
-          death_date: null,
-          death_reason: '',
-          is_emergency: false,
-          need_death_certificate: false
-        }}
-      >
-        {/* 고객 정보 섹션 */}
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold text-blue-800 mb-4">고객 정보</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <Form.Item
-              name="customer_name"
-              label="고객명"
-              rules={[{ required: true, message: '고객명을 입력해주세요' }]}
-            >
-              <Input placeholder="고객명 입력" />
-            </Form.Item>
-
-            <Form.Item
-              name="customer_phone"
-              label="연락처"
-              rules={[{ required: true, message: '연락처를 입력해주세요' }]}
-            >
-              <Input placeholder="연락처 입력" />
-            </Form.Item>
-
-            <Form.Item name="customer_email" label="이메일">
-              <Input placeholder="이메일 입력" />
-            </Form.Item>
-
-            <Form.Item name="customer_address" label="주소">
-              <Input placeholder="주소 입력" />
-            </Form.Item>
-
-            <Form.Item name="customer_memo" label="메모" className="col-span-2">
-              <TextArea rows={2} placeholder="고객 관련 특이사항" />
-            </Form.Item>
-          </div>
-        </div>
-
-        <Divider />
-
-        {/* 반려동물 정보 섹션 */}
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold text-blue-800 mb-4">반려동물 정보</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <Form.Item
-              name="pet_name"
-              label="반려동물명"
-              rules={[{ required: true, message: '반려동물명을 입력해주세요' }]}
-            >
-              <Input placeholder="반려동물명 입력" />
-            </Form.Item>
-
-            <Form.Item
-              name="pet_species"
-              label="종류"
-            >
-              <Select>
-                <Option value="dog">강아지</Option>
-                <Option value="cat">고양이</Option>
-                <Option value="etc">기타</Option>
-              </Select>
-            </Form.Item>
-
-            <Form.Item
-              name="pet_breed"
-              label="품종"
-            >
-              <Input placeholder="품종 입력" />
-            </Form.Item>
-
-            <Form.Item
-              name="pet_gender"
-              label="성별"
-            >
-              <Select>
-                <Option value="male">수컷</Option>
-                <Option value="female">암컷</Option>
-              </Select>
-            </Form.Item>
-
-            <Form.Item
-              name="pet_age"
-              label="나이"
-            >
-              <InputNumber min={0} max={100} className="w-full" />
-            </Form.Item>
-
-            <Form.Item
-              name="pet_weight"
-              label="몸무게 (kg)"
-            >
-              <InputNumber min={0} max={100} step={0.1} className="w-full" />
-            </Form.Item>
-
-            <Form.Item
-              name="death_date"
-              label="사망일시"
-            >
-              <DatePicker
-                showTime
-                format="YYYY-MM-DD HH:mm"
-                className="w-full"
-                placeholder="사망일시 선택"
-              />
-            </Form.Item>
-
-            <Form.Item
-              name="death_reason"
-              label="사망원인"
-            >
-              <Select placeholder="사망원인 선택">
-                {DEATH_REASON_CHOICES.map(reason => (
-                  <Option key={reason.value} value={reason.value}>
-                    {reason.label}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
-
-            <Form.Item name="pet_memo" label="메모" className="col-span-2">
-              <TextArea rows={2} placeholder="반려동물 관련 특이사항" />
-            </Form.Item>
-          </div>
-        </div>
-
-        <Divider />
-
-        {/* 예약 정보 섹션 */}
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold text-blue-800 mb-4">예약 정보</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <Form.Item
-              name="package_id"
-              label="패키지"
-            >
-              <Select 
-                placeholder="패키지 선택" 
-                allowClear 
-                loading={fetchLoading}
-                disabled={loading}
+      <Spin spinning={loading}>
+        <Form
+          form={form}
+          layout="vertical"
+          className="space-y-6"
+        >
+          {/* 예약 정보 */}
+          <div className="bg-gray-50 p-4 rounded-md">
+            <h3 className="text-lg font-medium mb-4">예약 정보</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <Form.Item
+                name="scheduled_at"
+                label="예약일시"
+                rules={[{ required: true, message: '예약일시를 선택해주세요' }]}
               >
-                {packages.map(pkg => (
-                  <Option key={pkg.id} value={pkg.id}>
-                    {pkg.name} ({pkg.price?.toLocaleString()}원)
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
+                <DatePicker
+                  showTime={{ format: 'HH:mm', minuteStep: 10 }}
+                  format="YYYY-MM-DD HH:mm"
+                  className="w-full"
+                  onChange={handleScheduleChange}
+                  disabledDate={current => current && current < dayjs().startOf('day')}
+                  disabledTime={getDisabledTime}
+                />
+              </Form.Item>
 
-            <Form.Item
-              name="memorial_room_id"
-              label="추모관"
-            >
-              <Select 
-                placeholder="추모관 선택" 
-                loading={fetchLoading}
-                disabled={loading}
+              <Form.Item
+                name="memorial_room_id"
+                label="추모실"
+                rules={[{ required: true, message: '추모실을 선택해주세요' }]}
               >
-                {memorialRooms.map(room => (
-                  <Option key={room.id} value={room.id}>
-                    {room.name}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
+                <Select onChange={handleScheduleChange}>
+                  {memorialRooms.map(room => (
+                    <Option key={room.id} value={room.id}>{room.name}</Option>
+                  ))}
+                </Select>
+              </Form.Item>
 
-            <Form.Item
-              name="scheduled_at"
-              label="예약일시"
-            >
-              <DatePicker
-                showTime
-                format="YYYY-MM-DD HH:mm"
-                className="w-full"
-                placeholder="예약일시 선택"
-              />
-            </Form.Item>
+              <Form.Item
+                name="is_emergency"
+                label="긴급여부"
+                valuePropName="checked"
+              >
+                <Select>
+                  <Option value={true}>긴급</Option>
+                  <Option value={false}>일반</Option>
+                </Select>
+              </Form.Item>
 
-            <Form.Item
-              name="assigned_staff"
-              label="담당자"
-            >
-              <Select placeholder="담당자 선택">
-                {staff.map(person => (
-                  <Option key={person.id} value={person.id}>{person.name}</Option>
-                ))}
-              </Select>
-            </Form.Item>
+              <Form.Item
+                name="visit_route"
+                label="방문경로"
+                rules={[{ required: true, message: '방문경로를 선택해주세요' }]}
+              >
+                <Select>
+                  {VISIT_ROUTE_CHOICES.map(choice => (
+                    <Option key={choice.value} value={choice.value}>
+                      {choice.label}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
 
-            <Form.Item
-              name="is_emergency"
-              label="긴급여부"
-              valuePropName="checked"
-            >
-              <Checkbox>긴급 여부</Checkbox>
-            </Form.Item>
+              <Form.Item
+                name="referral_hospital"
+                label="의뢰 병원명"
+                dependencies={['visit_route']}
+                rules={[
+                  ({ getFieldValue }) => ({
+                    required: getFieldValue('visit_route') === 'hospital',
+                    message: '의뢰 병원명을 입력해주세요',
+                  }),
+                ]}
+              >
+                <Input />
+              </Form.Item>
 
-            <Form.Item
-              label="방문 경로"
-              name="visit_route"
-            >
-              <Select placeholder="방문 경로 선택">
-                {VISIT_ROUTE_CHOICES.map(choice => (
-                  <Option key={choice.value} value={choice.value}>
-                    {choice.label}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
+              <Form.Item
+                name="need_death_certificate"
+                label="장례확인서 필요여부"
+                valuePropName="checked"
+              >
+                <Checkbox>장례확인서 필요</Checkbox>
+              </Form.Item>
 
-            <Form.Item
-              name="referral_hospital"
-              label="경유업체"
-            >
-              <Input placeholder="경유업체명 입력" />
-            </Form.Item>
-
-            <Form.Item
-              name="need_death_certificate"
-              label="장례확인서"
-              valuePropName="checked"
-            >
-              <Checkbox>장례확인서 필요</Checkbox>
-            </Form.Item>
-
-            <Form.Item
-              name="custom_requests"
-              label="요청사항"
-              className="col-span-2"
-            >
-              <TextArea rows={4} placeholder="특별한 요청사항이 있다면 입력해주세요" />
-            </Form.Item>
+              {availabilityError && (
+                <div className="col-span-2">
+                  <Alert
+                    message={availabilityError}
+                    type="error"
+                    showIcon
+                  />
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </Form>
+
+          {/* 고객 정보 */}
+          <div className="bg-gray-50 p-4 rounded-md">
+            <h3 className="text-lg font-medium mb-4">고객 정보</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <Form.Item
+                name="customer_name"
+                label="고객명"
+                rules={[{ required: true, message: '고객명을 입력해주세요' }]}
+              >
+                <Input />
+              </Form.Item>
+
+              <Form.Item
+                name="customer_phone"
+                label="연락처"
+                rules={[{ required: true, message: '연락처를 입력해주세요' }]}
+              >
+                <Input />
+              </Form.Item>
+
+              <Form.Item
+                name="customer_email"
+                label="이메일"
+                rules={[
+                  {
+                    type: 'email',
+                    message: '올바른 이메일 형식이 아닙니다',
+                  }
+                ]}
+              >
+                <Input />
+              </Form.Item>
+
+              <Form.Item
+                name="customer_address"
+                label="주소"
+              >
+                <Input />
+              </Form.Item>
+            </div>
+          </div>
+
+          {/* 반려동물 정보 */}
+          <div className="bg-gray-50 p-4 rounded-md">
+            <h3 className="text-lg font-medium mb-4">반려동물 정보</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <Form.Item
+                name="pet_name"
+                label="이름"
+                rules={[{ required: true, message: '반려동물의 이름을 입력해주세요' }]}
+              >
+                <Input />
+              </Form.Item>
+
+              <Form.Item
+                name="pet_species"
+                label="종"
+              >
+                <Select>
+                  {PET_SPECIES.map(species => (
+                    <Option key={species.value} value={species.value}>
+                      {species.label}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+
+              <Form.Item
+                name="pet_breed"
+                label="품종"
+              >
+                <Input />
+              </Form.Item>
+
+              <Form.Item
+                name="pet_gender"
+                label="성별"
+              >
+                <Select>
+                  {PET_GENDERS.map(gender => (
+                    <Option key={gender.value} value={gender.value}>
+                      {gender.label}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+
+              <Form.Item
+                name="pet_age"
+                label="나이"
+              >
+                <InputNumber min={0} className="w-full" />
+              </Form.Item>
+
+              <Form.Item
+                name="pet_weight"
+                label="체중 (kg)"
+              >
+                <InputNumber min={0} step={0.1} className="w-full" />
+              </Form.Item>
+
+              <Form.Item
+                name="death_datetime"
+                label="사망일시"
+              >
+                <DatePicker
+                  showTime
+                  format="YYYY-MM-DD HH:mm"
+                  className="w-full"
+                />
+              </Form.Item>
+
+              <Form.Item
+                name="death_reason"
+                label="사망사유"
+              >
+                <Select>
+                  {DEATH_REASON_CHOICES.map(reason => (
+                    <Option key={reason.value} value={reason.value}>
+                      {reason.label}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+
+              <Form.Item
+                name="special_notes"
+                label="특이사항"
+                className="col-span-2"
+              >
+                <TextArea rows={4} />
+              </Form.Item>
+            </div>
+          </div>
+
+          {/* 서비스 정보 */}
+          <div className="bg-gray-50 p-4 rounded-md">
+            <h3 className="text-lg font-medium mb-4">서비스 정보</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <Form.Item
+                name="package_id"
+                label="장례 패키지"
+              >
+                <Select>
+                  {packages.map(pkg => (
+                    <Option key={pkg.id} value={pkg.id}>{pkg.name}</Option>
+                  ))}
+                </Select>
+              </Form.Item>
+
+              <Form.Item
+                name="assigned_staff_id"
+                label="담당 직원"
+              >
+                <Select>
+                  {staffs.map(staff => (
+                    <Option key={staff.id} value={staff.id}>{staff.name}</Option>
+                  ))}
+                </Select>
+              </Form.Item>
+
+              <Form.Item
+                name="custom_requests"
+                label="요청사항"
+                className="col-span-2"
+              >
+                <TextArea rows={4} />
+              </Form.Item>
+            </div>
+          </div>
+        </Form>
+      </Spin>
     </Modal>
   );
 }; 

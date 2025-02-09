@@ -56,4 +56,29 @@ export const PET_GENDERS = [
 export const getLabelByValue = (choices, value) => {
   const found = choices.find(choice => choice.value === value);
   return found ? found.label : value;
+};
+
+// 기존 파일에 추가
+export const RESERVATION_STATUS = {
+  PENDING: 'pending',
+  CONFIRMED: 'confirmed',
+  IN_PROGRESS: 'in_progress',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled'
+};
+
+export const RESERVATION_STATUS_LABELS = {
+  pending: '대기중',
+  confirmed: '확정',
+  in_progress: '진행중',
+  completed: '완료',
+  cancelled: '취소'
+};
+
+export const RESERVATION_STATUS_COLORS = {
+  pending: 'warning',
+  confirmed: 'processing',
+  in_progress: 'purple',
+  completed: 'success',
+  cancelled: 'error'
 }; 
