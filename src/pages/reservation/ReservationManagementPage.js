@@ -8,13 +8,14 @@ import {
 } from '../../constants/reservation';
 import { ReservationFormModal } from '../../components/reservation/ReservationFormModal';
 import locale from 'antd/es/date-picker/locale/ko_KR';
+import dayjs from 'dayjs';
 
 const { Option } = Select;
 const { Search } = Input;
 
 // 필터 초기값 상수 정의
 const initialFilters = {
-  date: undefined,
+  date: dayjs().format('YYYY-MM-DD'),
   status: undefined,
   memorial_room_id: undefined,
   search: ''
@@ -29,6 +30,16 @@ export const ReservationManagementPage = () => {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState(null);
   const [form] = Form.useForm();
+
+  useEffect(() => {
+    // 폼 초기값 설정
+    form.setFieldsValue({
+      date: dayjs(initialFilters.date),
+      status: initialFilters.status,
+      memorial_room_id: initialFilters.memorial_room_id,
+      search: initialFilters.search
+    });
+  }, [form]);
 
   // 예약 목록 조회
   const fetchReservations = useCallback(async () => {
@@ -183,8 +194,17 @@ export const ReservationManagementPage = () => {
 
   // 필터 초기화 핸들러 추가
   const handleResetFilters = () => {
-    setFilters(initialFilters);
-    form.resetFields();
+    const today = dayjs().format('YYYY-MM-DD');
+    setFilters({
+      ...initialFilters,
+      date: today
+    });
+    form.setFieldsValue({
+      date: dayjs(today),
+      status: undefined,
+      memorial_room_id: undefined,
+      search: ''
+    });
   };
 
   // 수정 핸들러

@@ -148,23 +148,19 @@ export const PackageManagementPage = () => {
       title: '패키지명',
       dataIndex: 'name',
       key: 'name',
+      width: 200,
     },
     {
       title: '설명',
       dataIndex: 'description',
       key: 'description',
       ellipsis: true,
-      width: 300,
-      render: (text) => (
-        <div title={text}>
-          {text}
-        </div>
-      ),
     },
     {
       title: '가격',
       dataIndex: 'price',
       key: 'price',
+      width: 150,
       render: (price) => `${price?.toLocaleString()}원`
     },
     {

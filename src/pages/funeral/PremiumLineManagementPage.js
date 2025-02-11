@@ -81,24 +81,20 @@ export const PremiumLineManagementPage = () => {
       title: '라인명',
       dataIndex: 'name',
       key: 'name',
+      width: 200,
     },
     {
       title: '설명',
       dataIndex: 'description',
       key: 'description',
       ellipsis: true,
-      width: 300,
-      render: (text) => (
-        <div title={text}>
-          {text}
-        </div>
-      ),
     },
     {
       title: '가격',
       dataIndex: 'price',
       key: 'price',
-      render: (price) => price != null ? `${price.toLocaleString()} 원` : '-',
+      width: 150,
+      render: (price) => price != null ? `${parseInt(price).toLocaleString()} 원` : '-',
     },
     {
       title: '관리',
