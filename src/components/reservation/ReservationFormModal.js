@@ -76,21 +76,6 @@ export const ReservationFormModal = ({ visible, onCancel, reservationId, reserva
 
   // 시간 선택 제한
   const getDisabledTime = () => {
-    const now = dayjs();
-    const currentDate = form.getFieldValue('scheduled_at');
-    
-    // 오늘 날짜인 경우 현재 시간 이전 비활성화
-    if (currentDate && currentDate.format('YYYY-MM-DD') === now.format('YYYY-MM-DD')) {
-      return {
-        disabledHours: () => Array.from({ length: now.hour() }, (_, i) => i),
-        disabledMinutes: (selectedHour) => {
-          if (selectedHour === now.hour()) {
-            return Array.from({ length: now.minute() + 1 }, (_, i) => i);
-          }
-          return [];
-        }
-      };
-    }
     return {};
   };
 
@@ -247,7 +232,7 @@ export const ReservationFormModal = ({ visible, onCancel, reservationId, reserva
           key="submit" 
           type="primary"
           onClick={handleSave}
-          loading={loading}
+          loading={loading || checkingAvailability}
           disabled={!!availabilityError}
           className="!bg-blue-800 !border-blue-800 hover:!bg-blue-900 hover:!border-blue-900"
         >
@@ -256,7 +241,7 @@ export const ReservationFormModal = ({ visible, onCancel, reservationId, reserva
       ]}
       width={800}
     >
-      <Spin spinning={loading}>
+      <Spin spinning={loading || checkingAvailability}>
         <Form
           form={form}
           layout="vertical"
@@ -276,7 +261,6 @@ export const ReservationFormModal = ({ visible, onCancel, reservationId, reserva
                   format="YYYY-MM-DD HH:mm"
                   className="w-full"
                   onChange={handleScheduleChange}
-                  disabledDate={current => current && current < dayjs().startOf('day')}
                   disabledTime={getDisabledTime}
                 />
               </Form.Item>

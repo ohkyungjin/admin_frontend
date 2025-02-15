@@ -50,7 +50,7 @@ export const reservationService = {
       if (error.response?.data?.error) {
         throw error.response.data.error;
       }
-      throw '예약 가능 시간 조회 중 오류가 발생했습니다.';
+      throw new Error('예약 가능 시간 조회 중 오류가 발생했습니다.');
     }
   },
 
@@ -67,7 +67,7 @@ export const reservationService = {
       if (error.response?.data?.error) {
         throw error.response.data.error;
       }
-      throw '예약 가능 여부 확인 중 오류가 발생했습니다.';
+      throw new Error('예약 가능 여부 확인 중 오류가 발생했습니다.');
     }
   },
 

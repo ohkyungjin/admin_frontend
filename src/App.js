@@ -15,6 +15,7 @@ import { PackageManagementPage } from './pages/funeral/PackageManagementPage';
 import { PremiumLineManagementPage } from './pages/funeral/PremiumLineManagementPage';
 import { AdditionalOptionsPage } from './pages/funeral/AdditionalOptionsPage';
 import { ReservationManagementPage } from './pages/reservation/ReservationManagementPage';
+import { MemorialRoomManagementPage } from './pages/memorial/MemorialRoomManagementPage';
 
 const PrivateRoute = ({ children }) => {
   const isAuthenticated = !!localStorage.getItem('access_token');
@@ -118,6 +119,14 @@ function App() {
           element={
             <PrivateRoute>
               <ReservationManagementPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/reservations/memorial-rooms"
+          element={
+            <PrivateRoute>
+              <MemorialRoomManagementPage />
             </PrivateRoute>
           }
         />

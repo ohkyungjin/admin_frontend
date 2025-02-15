@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Table, Button, Modal, Form, Input, InputNumber, Switch, Card, Space, message, Dropdown, Select, TimePicker } from 'antd';
+import { Table, Button, Modal, Form, Input, InputNumber, Switch, Card, Space, message, Dropdown, Select, TimePicker, Tag } from 'antd';
 import { EditOutlined, DeleteOutlined, MoreOutlined } from '@ant-design/icons';
 import { memorialRoomService } from '../../services/memorialRoomService';
 import dayjs from 'dayjs';
@@ -52,13 +52,16 @@ export const MemorialRoomManagementPage = () => {
   // 운영시간 포맷 함수
   const formatOperatingHours = (start, end) => {
     if (!start || !end) return null;
-    return `${start.format('HH:mm')} - ${end.format('HH:mm')}`;
+    return {
+      start_time: start.format('HH:mm'),
+      end_time: end.format('HH:mm')
+    };
   };
 
   // 운영시간 파싱 함수
   const parseOperatingHours = (operatingHours) => {
     if (!operatingHours) return { start: null, end: null };
-    const [start, end] = operatingHours.split(' - ');
+    const [start, end] = operatingHours.split('-');
     return {
       start: start ? dayjs(start, 'HH:mm') : null,
       end: end ? dayjs(end, 'HH:mm') : null
@@ -68,7 +71,10 @@ export const MemorialRoomManagementPage = () => {
   // 추모실 생성/수정 처리
   const handleSubmit = async (values) => {
     const formattedValues = {
-      ...values,
+      name: values.name,
+      capacity: values.capacity || 10,
+      description: values.notes,
+      is_active: values.is_active ?? true,
       operating_hours: values.operating_hours?.start && values.operating_hours?.end
         ? formatOperatingHours(values.operating_hours.start, values.operating_hours.end)
         : null
@@ -102,7 +108,13 @@ export const MemorialRoomManagementPage = () => {
           fetchRooms();
         } catch (error) {
           console.error('추모실 저장 오류:', error);
-          message.error('추모실 저장에 실패했습니다.');
+          if (error.response?.data?.code === 'M002') {
+            message.error('이미 존재하는 추모실 이름입니다.');
+          } else if (error.response?.data?.code === 'M004') {
+            message.error('사용중인 추모실은 삭제할 수 없습니다.');
+          } else {
+            message.error('추모실 저장에 실패했습니다.');
+          }
         }
       }
     });
@@ -130,7 +142,11 @@ export const MemorialRoomManagementPage = () => {
       fetchRooms();
     } catch (error) {
       console.error('추모실 삭제 오류:', error);
-      message.error('추모실 삭제에 실패했습니다.');
+      if (error.response?.data?.code === 'M004') {
+        message.error('사용중인 추모실은 삭제할 수 없습니다.');
+      } else {
+        message.error('추모실 삭제에 실패했습니다.');
+      }
     }
   };
 
@@ -148,17 +164,31 @@ export const MemorialRoomManagementPage = () => {
       render: (capacity) => capacity || '-',
     },
     {
+      title: '상태',
+      dataIndex: 'current_status',
+      key: 'current_status',
+      render: (status) => {
+        const statusMap = {
+          available: { text: '사용가능', color: 'green' },
+          in_use: { text: '사용중', color: 'blue' },
+          reserved: { text: '예약중', color: 'orange' }
+        };
+        const { text, color } = statusMap[status] || { text: '-', color: 'default' };
+        return <Tag color={color}>{text}</Tag>;
+      }
+    },
+    {
       title: '운영 시간',
       dataIndex: 'operating_hours',
       key: 'operating_hours',
-      render: (hours) => hours || '-',
+      render: (hours) => hours || '-'
     },
     {
-      title: '특이사항',
-      dataIndex: 'notes',
-      key: 'notes',
+      title: '설명',
+      dataIndex: 'description',
+      key: 'description',
       ellipsis: true,
-      render: (notes) => notes || '-',
+      render: (description) => description || '-',
     },
     {
       title: '관리',

@@ -68,7 +68,7 @@ export const DashboardPage = () => {
 
   useEffect(() => {
     fetchDashboardData();
-    // 1분마다 데이터 갱신
+    // API 명세의 캐시 정책에 따라 1분마다 데이터 갱신
     const interval = setInterval(fetchDashboardData, 60000);
     return () => clearInterval(interval);
   }, []);
@@ -159,39 +159,15 @@ export const DashboardPage = () => {
                     className={`text-center border ${
                       room.current_status === 'in_use' 
                         ? 'border-red-200 bg-red-50' 
-                        : room.next_reservation && dayjs(room.next_reservation.scheduled_at).diff(dayjs(), 'hour') <= 2
-                          ? room.next_reservation.status === 'pending'
-                            ? 'border-yellow-200 bg-yellow-50'
-                            : ['confirmed', 'in_progress', 'completed'].includes(room.next_reservation.status)
-                              ? 'border-blue-200 bg-blue-50'
-                              : 'border-green-200 bg-green-50'
-                          : 'border-green-200 bg-green-50'
+                        : 'border-green-200 bg-green-50'
                     }`}
                   >
                     <h3 className="text-sm font-medium mb-1">{room.room_name}</h3>
                     <Tag 
-                      color={
-                        room.current_status === 'in_use' 
-                          ? 'red' 
-                          : room.next_reservation && dayjs(room.next_reservation.scheduled_at).diff(dayjs(), 'hour') <= 2
-                            ? room.next_reservation.status === 'pending'
-                              ? 'warning'
-                              : ['confirmed', 'in_progress', 'completed'].includes(room.next_reservation.status)
-                                ? 'blue'
-                                : 'green'
-                            : 'green'
-                      } 
+                      color={room.current_status === 'in_use' ? 'red' : 'green'} 
                       className="px-1.5 py-0 text-xs"
                     >
-                      {room.current_status === 'in_use' 
-                        ? '사용중' 
-                        : room.next_reservation && dayjs(room.next_reservation.scheduled_at).diff(dayjs(), 'hour') <= 2
-                          ? room.next_reservation.status === 'pending'
-                            ? '대기중'
-                            : ['confirmed', 'in_progress', 'completed'].includes(room.next_reservation.status)
-                              ? '사용예정'
-                              : '사용가능'
-                          : '사용가능'}
+                      {room.current_status === 'in_use' ? '사용중' : '사용가능'}
                     </Tag>
                     <div className="mt-1 space-y-0.5">
                       <p className="text-xs text-gray-600 leading-none">
@@ -200,11 +176,7 @@ export const DashboardPage = () => {
                       {room.next_reservation && (
                         <p className="text-xs leading-none flex items-center justify-center mt-1.5">
                           <span className="font-medium text-blue-600 mr-1">다음:</span>
-                          <span className={`font-semibold px-2 py-0.5 rounded ${
-                            room.next_reservation.status === 'pending'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-blue-100 text-blue-800'
-                          }`}>
+                          <span className="font-semibold px-2 py-0.5 rounded bg-blue-100 text-blue-800">
                             {dayjs(room.next_reservation.scheduled_at).format('HH:mm')}
                           </span>
                         </p>
@@ -231,44 +203,46 @@ export const DashboardPage = () => {
             className="shadow-md h-full !p-0"
           >
             <Row gutter={[8, 8]}>
-              {dashboardData?.staff_workload.map(staff => (
-                <Col span={8} key={staff.staff_id}>
-                  <Card 
-                    className="bg-gray-50 hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="text-center mb-2">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                      </div>
-                      <h4 className="text-sm font-medium text-gray-800 leading-none">{staff.staff_name}</h4>
-                      <p className="text-base font-bold text-blue-600 mt-0.5">{staff.assigned_count}건</p>
-                    </div>
-                    <div className="border-t pt-1 space-y-1">
-                      {staff.today_assignments
-                        .filter(assignment => ['pending', 'confirmed', 'in_progress', 'completed'].includes(assignment.status))
-                        .map(assignment => (
-                        <div key={assignment.id} className="flex items-center justify-between bg-white p-1 rounded text-xs">
-                          <span className={`leading-none ${
-                            assignment.status === 'pending' 
-                              ? 'text-yellow-600' 
-                              : 'text-gray-600'
-                          }`}>
-                            {dayjs(assignment.scheduled_at).format('HH:mm')}
-                          </span>
-                          <Tag 
-                            color={RESERVATION_STATUS_COLORS[assignment.status]}
-                            className="ml-1 !text-xs !px-1.5 !py-0 leading-none"
-                          >
-                            {RESERVATION_STATUS_LABELS[assignment.status]}
-                          </Tag>
+              {dashboardData?.staff_workload.length > 0 ? (
+                dashboardData?.staff_workload.map(staff => (
+                  <Col span={8} key={staff.staff_id}>
+                    <Card 
+                      className="bg-gray-50 hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="text-center mb-2">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-1">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
                         </div>
-                      ))}
-                    </div>
-                  </Card>
+                        <h4 className="text-sm font-medium text-gray-800 leading-none">{staff.staff_name}</h4>
+                        <p className="text-base font-bold text-blue-600 mt-0.5">{staff.assigned_count}건</p>
+                      </div>
+                      <div className="border-t pt-1 space-y-1">
+                        {staff.today_assignments.map(assignment => (
+                          <div key={assignment.id} className="flex items-center justify-between bg-white p-1 rounded text-xs">
+                            <span className="leading-none text-gray-600">
+                              {dayjs(assignment.scheduled_at).format('HH:mm')}
+                            </span>
+                            <Tag 
+                              color={RESERVATION_STATUS_COLORS[assignment.status]}
+                              className="ml-1 !text-xs !px-1.5 !py-0 leading-none"
+                            >
+                              {RESERVATION_STATUS_LABELS[assignment.status]}
+                            </Tag>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  </Col>
+                ))
+              ) : (
+                <Col span={24}>
+                  <div className="text-center py-8 text-gray-500">
+                    금일 예약이 없습니다
+                  </div>
                 </Col>
-              ))}
+              )}
             </Row>
           </Card>
         </Col>
