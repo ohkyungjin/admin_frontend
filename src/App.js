@@ -15,6 +15,7 @@ import { PackageManagementPage } from './pages/funeral/PackageManagementPage';
 import { PremiumLineManagementPage } from './pages/funeral/PremiumLineManagementPage';
 import { AdditionalOptionsPage } from './pages/funeral/AdditionalOptionsPage';
 import { ReservationManagementPage } from './pages/reservation/ReservationManagementPage';
+import { ReservationCalendarPage } from './pages/reservation/ReservationCalendarPage';
 import { MemorialRoomManagementPage } from './pages/memorial/MemorialRoomManagementPage';
 
 const PrivateRoute = ({ children }) => {
@@ -119,6 +120,14 @@ function App() {
           element={
             <PrivateRoute>
               <ReservationManagementPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/reservations/calendar"
+          element={
+            <PrivateRoute>
+              <ReservationCalendarPage />
             </PrivateRoute>
           }
         />

@@ -75,14 +75,15 @@ export const DashboardLayout = ({ children }) => {
 
   const menuItems = [
     { name: '대시보드', path: '/dashboard', icon: '📊' },
-    {
-      name: '예약 관리',
-      icon: '📅',
-      subItems: [
-        { name: '예약 현황', path: '/reservations', icon: '📆' },
-        { name: '추모실 관리', path: '/reservations/memorial-rooms', icon: '🏛️' },
-      ],
-    },
+    { name: '예약 관리', path: '/reservations/calendar', icon: '📆' },
+    // {
+    //   name: '예약 관리',
+    //   icon: '📅',
+    //   subItems: [
+    //     { name: '예약 현황', path: '/reservations', icon: '📆' },
+    //     { name: '예약 캘린더', path: '/reservations/calendar', icon: '📆' },
+    //   ],
+    // },
     {
       name: '재고 관리',
       icon: '📦',
@@ -101,6 +102,7 @@ export const DashboardLayout = ({ children }) => {
         { name: '패키지 관리', path: '/funeral/packages', icon: '📦' },
         { name: '프리미엄 라인', path: '/funeral/premium-lines', icon: '⭐' },
         { name: '추가 옵션', path: '/funeral/additional-options', icon: '➕' },
+        { name: '추모실 관리', path: '/reservations/memorial-rooms', icon: '🏛️' },
       ],
     },
     { name: '계정 관리', path: '/account/management', icon: '👥' },

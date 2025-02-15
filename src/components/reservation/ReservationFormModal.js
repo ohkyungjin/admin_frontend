@@ -11,7 +11,7 @@ import {
 } from '../../constants/reservation';
 import { reservationService } from '../../services/reservationService';
 import { memorialRoomService } from '../../services/memorialRoomService';
-import { getPackages } from '../../services/funeralService';
+import { getPackages, getPremiumLines, getAdditionalOptions } from '../../services/funeralService';
 import { accountService } from '../../services/accountService';
 
 dayjs.extend(utc);
@@ -25,6 +25,8 @@ export const ReservationFormModal = ({ visible, onCancel, reservationId, reserva
   const [loading, setLoading] = useState(false);
   const [memorialRooms, setMemorialRooms] = useState([]);
   const [packages, setPackages] = useState([]);
+  const [premiumLines, setPremiumLines] = useState([]);
+  const [additionalOptions, setAdditionalOptions] = useState([]);
   const [staffs, setStaffs] = useState([]);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [availabilityError, setAvailabilityError] = useState(null);
@@ -82,14 +84,24 @@ export const ReservationFormModal = ({ visible, onCancel, reservationId, reserva
   // 목록 데이터 조회
   const fetchOptions = async () => {
     try {
-      const [roomsResponse, packagesResponse, staffsResponse] = await Promise.all([
+      const [
+        roomsResponse, 
+        packagesResponse, 
+        premiumLinesResponse,
+        additionalOptionsResponse,
+        staffsResponse
+      ] = await Promise.all([
         memorialRoomService.getRooms(),
         getPackages(),
+        getPremiumLines(),
+        getAdditionalOptions(),
         accountService.getUsers()
       ]);
 
       setMemorialRooms(roomsResponse.results || []);
       setPackages(packagesResponse.data?.results || []);
+      setPremiumLines(premiumLinesResponse.data?.results || []);
+      setAdditionalOptions(additionalOptionsResponse.data?.results || []);
       setStaffs(staffsResponse.data?.results || []);
     } catch (error) {
       console.error('옵션 목록 조회 오류:', error);
@@ -109,9 +121,11 @@ export const ReservationFormModal = ({ visible, onCancel, reservationId, reserva
           visit_route: reservation.visit_route,
           referral_hospital: reservation.referral_hospital,
           need_death_certificate: reservation.need_death_certificate,
-          custom_requests: reservation.custom_requests,
+          memo: reservation.memo,
           memorial_room_id: reservation.memorial_room?.id || reservation.memorial_room_id,
           package_id: reservation.package?.id || reservation.package_id,
+          premium_line_id: reservation.premium_line?.id || reservation.premium_line_id,
+          additional_option_ids: reservation.additional_options?.map(opt => opt.id) || [],
           assigned_staff_id: reservation.assigned_staff?.id || reservation.assigned_staff_id,
           
           // 고객 정보
@@ -130,7 +144,6 @@ export const ReservationFormModal = ({ visible, onCancel, reservationId, reserva
           is_neutered: reservation.pet?.is_neutered,
           death_datetime: reservation.pet?.death_date ? dayjs(reservation.pet.death_date) : undefined,
           death_reason: reservation.pet?.death_reason,
-          special_notes: reservation.pet?.special_notes,
         });
       } else {
         form.resetFields();
@@ -168,7 +181,7 @@ export const ReservationFormModal = ({ visible, onCancel, reservationId, reserva
             visit_route: values.visit_route,
             referral_hospital: values.referral_hospital,
             need_death_certificate: values.need_death_certificate,
-            custom_requests: values.custom_requests,
+            memo: values.memo,
             
             customer: {
               name: values.customer_name,
@@ -187,11 +200,12 @@ export const ReservationFormModal = ({ visible, onCancel, reservationId, reserva
               is_neutered: values.is_neutered,
               death_date: values.death_datetime?.toISOString(),
               death_reason: values.death_reason,
-              special_notes: values.special_notes,
             },
             
             memorial_room_id: values.memorial_room_id,
             package_id: values.package_id,
+            premium_line_id: values.premium_line_id,
+            additional_option_ids: values.additional_option_ids,
             assigned_staff_id: values.assigned_staff_id,
           };
 
@@ -460,14 +474,6 @@ export const ReservationFormModal = ({ visible, onCancel, reservationId, reserva
                   ))}
                 </Select>
               </Form.Item>
-
-              <Form.Item
-                name="special_notes"
-                label="특이사항"
-                className="col-span-2"
-              >
-                <TextArea rows={4} />
-              </Form.Item>
             </div>
           </div>
 
@@ -487,6 +493,37 @@ export const ReservationFormModal = ({ visible, onCancel, reservationId, reserva
               </Form.Item>
 
               <Form.Item
+                name="premium_line_id"
+                label="프리미엄 라인"
+              >
+                <Select>
+                  <Option value={null}>선택 안함</Option>
+                  {premiumLines.map(line => (
+                    <Option key={line.id} value={line.id}>
+                      {line.name} ({parseInt(line.price).toLocaleString()}원)
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+
+              <Form.Item
+                name="additional_option_ids"
+                label="추가 서비스"
+              >
+                <Select
+                  mode="multiple"
+                  placeholder="추가 서비스를 선택해주세요"
+                  allowClear
+                >
+                  {additionalOptions.map(option => (
+                    <Option key={option.id} value={option.id}>
+                      {option.name} ({parseInt(option.price).toLocaleString()}원)
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+
+              <Form.Item
                 name="assigned_staff_id"
                 label="담당 직원"
               >
@@ -498,8 +535,8 @@ export const ReservationFormModal = ({ visible, onCancel, reservationId, reserva
               </Form.Item>
 
               <Form.Item
-                name="custom_requests"
-                label="요청사항"
+                name="memo"
+                label="메모"
                 className="col-span-2"
               >
                 <TextArea rows={4} />

@@ -153,8 +153,8 @@ export const DashboardPage = () => {
             className="shadow-md h-full !p-0"
           >
             <Row gutter={[8, 8]}>
-              {dashboardData?.memorial_room_status.map(room => (
-                <Col span={8} key={room.room_id}>
+              {dashboardData?.memorial_room_status.map((room, index) => (
+                <Col span={8} key={`room-${room.room_id || index}`}>
                   <Card 
                     className={`text-center border ${
                       room.current_status === 'in_use' 
@@ -203,9 +203,9 @@ export const DashboardPage = () => {
             className="shadow-md h-full !p-0"
           >
             <Row gutter={[8, 8]}>
-              {dashboardData?.staff_workload.length > 0 ? (
-                dashboardData?.staff_workload.map(staff => (
-                  <Col span={8} key={staff.staff_id}>
+              {dashboardData?.staff_workload?.length > 0 ? (
+                dashboardData.staff_workload.map((staff, index) => (
+                  <Col span={8} key={`staff-${staff.staff_id}-${index}`}>
                     <Card 
                       className="bg-gray-50 hover:bg-gray-100 transition-colors"
                     >
@@ -219,19 +219,25 @@ export const DashboardPage = () => {
                         <p className="text-base font-bold text-blue-600 mt-0.5">{staff.assigned_count}건</p>
                       </div>
                       <div className="border-t pt-1 space-y-1">
-                        {staff.today_assignments.map(assignment => (
-                          <div key={assignment.id} className="flex items-center justify-between bg-white p-1 rounded text-xs">
-                            <span className="leading-none text-gray-600">
-                              {dayjs(assignment.scheduled_at).format('HH:mm')}
-                            </span>
-                            <Tag 
-                              color={RESERVATION_STATUS_COLORS[assignment.status]}
-                              className="ml-1 !text-xs !px-1.5 !py-0 leading-none"
-                            >
-                              {RESERVATION_STATUS_LABELS[assignment.status]}
-                            </Tag>
+                        {staff.today_assignments?.length > 0 ? (
+                          staff.today_assignments.map((assignment, assignmentIndex) => (
+                            <div key={`assignment-${staff.staff_id}-${index}-${assignmentIndex}`} className="flex items-center justify-between bg-white p-1 rounded text-xs">
+                              <span className="leading-none text-gray-600">
+                                {dayjs(assignment.scheduled_at).format('HH:mm')}
+                              </span>
+                              <Tag 
+                                color={RESERVATION_STATUS_COLORS[assignment.status]}
+                                className="ml-1 !text-xs !px-1.5 !py-0 leading-none"
+                              >
+                                {RESERVATION_STATUS_LABELS[assignment.status]}
+                              </Tag>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-1 text-gray-500 text-xs">
+                            배정된 예약 없음
                           </div>
-                        ))}
+                        )}
                       </div>
                     </Card>
                   </Col>
@@ -239,7 +245,7 @@ export const DashboardPage = () => {
               ) : (
                 <Col span={24}>
                   <div className="text-center py-8 text-gray-500">
-                    금일 예약이 없습니다
+                    금일 근무 직원이 없습니다
                   </div>
                 </Col>
               )}
