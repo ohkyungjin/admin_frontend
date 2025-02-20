@@ -292,20 +292,9 @@ export const ReservationFormModal = ({ visible, onCancel, reservationId, reserva
               </Form.Item>
 
               <Form.Item
-                name="is_emergency"
-                label="긴급여부"
-                valuePropName="checked"
-              >
-                <Select>
-                  <Option value={true}>긴급</Option>
-                  <Option value={false}>일반</Option>
-                </Select>
-              </Form.Item>
-
-              <Form.Item
                 name="visit_route"
                 label="방문경로"
-                rules={[{ required: true, message: '방문경로를 선택해주세요' }]}
+                rules={[{ message: '방문경로를 선택해주세요' }]}
               >
                 <Select>
                   {VISIT_ROUTE_CHOICES.map(choice => (
