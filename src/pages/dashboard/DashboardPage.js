@@ -6,7 +6,7 @@ import {
   RESERVATION_STATUS_LABELS, 
   RESERVATION_STATUS_COLORS 
 } from '../../constants/reservation';
-import { QuickReservationModal } from '../../components/reservation/QuickReservationModal';
+import { QuickReservationModal } from '../../components/reservation';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ko';
 
@@ -354,18 +354,30 @@ export const DashboardPage = () => {
               key={`room-${room.room_id || index}`}
               className={`text-left border-l-4 shadow-sm hover:shadow-md transition-shadow ${
                 room.current_status === 'in_use' 
-                  ? 'border-l-red-500 bg-white' 
-                  : 'border-l-emerald-500 bg-white'
+                  ? 'border-l-blue-500'
+                  : room.current_status === 'reserved'
+                  ? 'border-l-orange-500'
+                  : 'border-l-green-500'
               }`}
             >
               <div className="flex flex-col">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-base font-semibold text-gray-800">{room.room_name}</h3>
                   <Tag 
-                    color={room.current_status === 'in_use' ? 'error' : 'success'} 
+                    color={
+                      room.current_status === 'in_use' 
+                        ? 'blue'
+                        : room.current_status === 'reserved'
+                        ? 'orange'
+                        : 'green'
+                    }
                     className="px-2 py-0.5 text-xs font-medium"
                   >
-                    {room.current_status === 'in_use' ? '사용중' : '사용가능'}
+                    {room.current_status === 'in_use' 
+                      ? '사용중' 
+                      : room.current_status === 'reserved'
+                      ? '예약중'
+                      : '사용가능'}
                   </Tag>
                 </div>
 

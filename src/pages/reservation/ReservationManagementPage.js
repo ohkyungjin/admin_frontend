@@ -6,7 +6,7 @@ import {
   RESERVATION_STATUS_LABELS, 
   RESERVATION_STATUS_COLORS
 } from '../../constants/reservation';
-import { ReservationFormModal } from '../../components/reservation/ReservationFormModal';
+import { ReservationFormModal } from '../../components/reservation';
 import locale from 'antd/es/date-picker/locale/ko_KR';
 import dayjs from 'dayjs';
 
