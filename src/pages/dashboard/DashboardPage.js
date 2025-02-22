@@ -58,7 +58,6 @@ export const DashboardPage = () => {
   // 필터 상태 추가
   const [filters, setFilters] = useState({
     status: undefined,
-    memorial_room_id: undefined,
     time: undefined
   });
 
@@ -93,10 +92,6 @@ export const DashboardPage = () => {
 
     if (filters.status) {
       filtered = filtered.filter(reservation => reservation.status === filters.status);
-    }
-
-    if (filters.memorial_room_id) {
-      filtered = filtered.filter(reservation => reservation.memorial_room_id === filters.memorial_room_id);
     }
 
     if (filters.time) {
@@ -134,7 +129,6 @@ export const DashboardPage = () => {
   const handleResetFilters = () => {
     setFilters({
       status: undefined,
-      memorial_room_id: undefined,
       time: undefined
     });
   };
@@ -184,29 +178,10 @@ export const DashboardPage = () => {
 
   const columns = [
     {
-      title: '예약번호',
-      dataIndex: 'id',
-      key: 'id',
-      width: 100,
-      render: (id) => <span className="font-medium">#{id}</span>
-    },
-    {
-      title: '고객명',
-      dataIndex: ['customer', 'name'],
-      key: 'customer_name',
-      width: 120,
-    },
-    {
-      title: '추모실',
-      dataIndex: 'memorial_room_name',
-      key: 'memorial_room_name',
-      width: 120,
-    },
-    {
       title: '예약일시',
       dataIndex: 'scheduled_at',
       key: 'scheduled_at',
-      width: 180,
+      width: 100,
       render: (text) => (
         <span className="text-gray-600">
           {dayjs(text).format('HH:mm')}
@@ -214,10 +189,28 @@ export const DashboardPage = () => {
       ),
     },
     {
+      title: '고객명',
+      dataIndex: ['customer', 'name'],
+      key: 'customer_name',
+      width: 100,
+    },
+    {
+      title: '반려동물명',
+      dataIndex: ['pet', 'name'],
+      key: 'pet_name',
+      width: 120,
+    },
+    {
+      title: '전화번호',
+      dataIndex: ['customer', 'phone'],
+      key: 'customer_phone',
+      width: 130,
+    },
+    {
       title: '상태',
       dataIndex: 'status',
       key: 'status',
-      width: 150,
+      width: 120,
       render: (status, record) => (
         status === 'completed' ? (
           <Tag color={RESERVATION_STATUS_COLORS[status]} className="px-3 py-1">
@@ -299,20 +292,6 @@ export const DashboardPage = () => {
             ))}
           </Select>
 
-          <Select
-            placeholder="추모실"
-            allowClear
-            style={{ width: 150 }}
-            value={filters.memorial_room_id}
-            onChange={(value) => setFilters(prev => ({ ...prev, memorial_room_id: value }))}
-          >
-            {dashboardData?.memorial_room_status.map(room => (
-              <Select.Option key={room.room_id} value={room.room_id}>
-                {room.room_name}
-              </Select.Option>
-            ))}
-          </Select>
-
           <TimePicker
             placeholder="예약 시간"
             format="HH:mm"
@@ -334,78 +313,6 @@ export const DashboardPage = () => {
           pagination={false}
           className="border rounded-lg"
         />
-      </Card>
-
-      {/* 추모실 현황 */}
-      <Card 
-        title={
-          <div className="flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
-            <span className="text-sm font-medium">추모실 현황</span>
-          </div>
-        } 
-        className="shadow-md"
-      >
-        <div className="grid grid-cols-3 gap-4">
-          {dashboardData?.memorial_room_status.map((room, index) => (
-            <Card 
-              key={`room-${room.room_id || index}`}
-              className={`text-left border-l-4 shadow-sm hover:shadow-md transition-shadow ${
-                room.current_status === 'in_use' 
-                  ? 'border-l-blue-500'
-                  : room.current_status === 'reserved'
-                  ? 'border-l-orange-500'
-                  : 'border-l-green-500'
-              }`}
-            >
-              <div className="flex flex-col">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-base font-semibold text-gray-800">{room.room_name}</h3>
-                  <Tag 
-                    color={
-                      room.current_status === 'in_use' 
-                        ? 'blue'
-                        : room.current_status === 'reserved'
-                        ? 'orange'
-                        : 'green'
-                    }
-                    className="px-2 py-0.5 text-xs font-medium"
-                  >
-                    {room.current_status === 'in_use' 
-                      ? '사용중' 
-                      : room.current_status === 'reserved'
-                      ? '예약중'
-                      : '사용가능'}
-                  </Tag>
-                </div>
-
-                <div className="flex items-center justify-between mb-2">
-                  {room.today_reservations?.[0]?.assigned_staff && (
-                    <div className="flex items-center gap-1.5">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                      <span className="text-sm text-gray-600">{room.today_reservations[0].assigned_staff.name}</span>
-                    </div>
-                  )}
-
-                  {room.today_reservations?.[0]?.scheduled_at && (
-                    <div className="flex items-center gap-1.5">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span className="text-sm text-blue-600 font-medium">
-                        {dayjs(room.today_reservations[0].scheduled_at).format('HH:mm')}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
       </Card>
 
       {/* 예약 통계 */}

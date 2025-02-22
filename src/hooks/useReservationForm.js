@@ -18,34 +18,25 @@ export const useReservationForm = ({ form, reservationId, reservation, onSuccess
 
   // 예약 가능 여부 체크
   const checkAvailability = async (values) => {
-    if (!values.scheduled_at || !values.memorial_room_id) return;
+    if (!values.scheduled_at) return;
 
     try {
       setCheckingAvailability(true);
       setAvailabilityError(null);
 
       const response = await reservationService.checkAvailability({
-        memorial_room_id: values.memorial_room_id,
         scheduled_at: values.scheduled_at.toISOString(),
-        duration_hours: 2,
-        exclude_reservation_id: reservationId
+        duration_hours: 2
       });
 
-      if (response.is_available) {
+      if (response.is_valid) {
         message.success('선택한 시간에 예약 가능합니다.');
         setAvailabilityError(null);
-      } else if (response.conflicting_reservation) {
-        if (reservationId && response.conflicting_reservation.id === reservationId) {
-          setAvailabilityError(null);
-          return;
-        }
-        const conflictTime = dayjs(response.conflicting_reservation.scheduled_at).format('YYYY-MM-DD HH:mm');
-        setAvailabilityError(
-          `선택한 시간에는 예약할 수 없습니다.\n해당 시간에 이미 예약이 있습니다. (예약번호: #${response.conflicting_reservation.id}, 시작시간: ${conflictTime})`
-        );
       }
     } catch (error) {
-      setAvailabilityError(error);
+      console.error('예약 가능 여부 확인 오류:', error);
+      setAvailabilityError(error.response?.data?.error || error.message || '예약 가능 여부를 확인하는데 실패했습니다.');
+      message.error(error.response?.data?.error || error.message || '예약 가능 여부를 확인하는데 실패했습니다.');
     } finally {
       setCheckingAvailability(false);
     }
@@ -113,7 +104,6 @@ export const useReservationForm = ({ form, reservationId, reservation, onSuccess
           death_date: values.death_datetime?.toISOString(),
           death_reason: values.death_reason,
         },
-        memorial_room_id: values.memorial_room_id,
         package_id: values.package_id,
         premium_line_id: values.premium_line_id,
         additional_option_ids: values.additional_option_ids,
@@ -132,7 +122,7 @@ export const useReservationForm = ({ form, reservationId, reservation, onSuccess
       onCancel();
     } catch (error) {
       console.error('예약 저장 오류:', error);
-      message.error(error.message || '예약 저장에 실패했습니다.');
+      message.error(error.response?.data?.error || error.message || '예약 저장에 실패했습니다.');
     } finally {
       setLoading(false);
     }

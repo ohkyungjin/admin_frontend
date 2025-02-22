@@ -3,9 +3,9 @@ import { Form, DatePicker, Select, Input, Checkbox, Alert } from 'antd';
 import { VISIT_ROUTE_CHOICES } from '../../../../constants/reservation';
 
 export const ReservationInfoSection = ({ 
-  memorialRooms, 
   availabilityError,
-  onScheduleChange 
+  onScheduleChange,
+  checkingAvailability
 }) => {
   return (
     <div className="bg-gray-50 p-4 rounded-md">
@@ -22,18 +22,6 @@ export const ReservationInfoSection = ({
             className="w-full"
             onChange={onScheduleChange}
           />
-        </Form.Item>
-
-        <Form.Item
-          name="memorial_room_id"
-          label="추모실"
-          rules={[{ required: true, message: '추모실을 선택해주세요' }]}
-        >
-          <Select onChange={onScheduleChange}>
-            {memorialRooms.map(room => (
-              <Select.Option key={room.id} value={room.id}>{room.name}</Select.Option>
-            ))}
-          </Select>
         </Form.Item>
 
         <Form.Item
@@ -72,10 +60,19 @@ export const ReservationInfoSection = ({
           <Checkbox>장례확인서 필요</Checkbox>
         </Form.Item>
 
+        {checkingAvailability && (
+          <div className="col-span-2">
+            <div className="text-blue-600">
+              <span className="animate-pulse">예약 가능 여부 확인 중...</span>
+            </div>
+          </div>
+        )}
+
         {availabilityError && (
           <div className="col-span-2">
             <Alert
-              message={availabilityError}
+              message="예약 불가"
+              description={availabilityError}
               type="error"
               showIcon
             />

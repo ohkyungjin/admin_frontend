@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import format from 'date-fns/format';
 import parse from 'date-fns/parse';
@@ -6,7 +6,6 @@ import startOfWeek from 'date-fns/startOfWeek';
 import getDay from 'date-fns/getDay';
 import { ko } from 'date-fns/locale';
 import { Button, message, Modal } from 'antd';
-import { debounce } from 'lodash';
 import { 
   startOfMonth, 
   endOfMonth, 
@@ -35,6 +34,8 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
+const CACHE_DURATION = 5 * 60 * 1000; // 5분
+
 export const ReservationCalendarPage = () => {
   const [reservations, setReservations] = useState([]);
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -43,12 +44,37 @@ export const ReservationCalendarPage = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // API 호출 디바운싱 적용
-  const fetchReservations = useCallback(async () => {
+  // 캐시 상태 관리
+  const cache = useRef({
+    data: {},
+    timestamp: {},
+    lastUpdated: null
+  });
+
+  // 캐시 유효성 검사
+  const isCacheValid = useCallback((monthKey) => {
+    const now = Date.now();
+    return (
+      cache.current.data[monthKey] &&
+      cache.current.timestamp[monthKey] &&
+      (now - cache.current.timestamp[monthKey] < CACHE_DURATION)
+    );
+  }, []);
+
+  // API 호출 및 캐시 업데이트
+  const fetchReservations = useCallback(async (targetDate, force = false) => {
+    const monthKey = format(targetDate, 'yyyy-MM');
+    
+    // 강제 갱신이 아니고 캐시가 유효한 경우 캐시된 데이터 사용
+    if (!force && isCacheValid(monthKey)) {
+      setReservations(cache.current.data[monthKey]);
+      return;
+    }
+
     try {
       setIsLoading(true);
-      const monthStart = startOfMonth(selectedDate);
-      const monthEnd = endOfMonth(selectedDate);
+      const monthStart = startOfMonth(targetDate);
+      const monthEnd = endOfMonth(targetDate);
       
       const params = {
         start_date: format(monthStart, 'yyyy-MM-dd'),
@@ -57,7 +83,6 @@ export const ReservationCalendarPage = () => {
       
       const response = await reservationService.getReservations(params);
       const events = (response?.results || []).map(reservation => {
-        // 날짜 유효성 검사
         const startDate = parseISO(reservation?.scheduled_at);
         if (!isValid(startDate)) {
           console.error('Invalid date:', reservation?.scheduled_at);
@@ -86,29 +111,48 @@ export const ReservationCalendarPage = () => {
             premium_line: reservation?.premium_line || null
           },
         };
-      }).filter(Boolean); // null 값 제거
+      }).filter(Boolean);
+      
+      // 캐시 업데이트
+      cache.current.data[monthKey] = events;
+      cache.current.timestamp[monthKey] = Date.now();
+      cache.current.lastUpdated = Date.now();
       
       setReservations(events);
     } catch (error) {
       console.error('예약 목록 조회 오류:', error);
-      const errorMessage = error.response?.data?.detail || error.message || '알 수 없는 오류가 발생했습니다';
-      message.error(`예약 목록을 불러오는데 실패했습니다: ${errorMessage}`);
+      message.error(error.response?.data?.detail || error.message || '예약 목록을 불러오는데 실패했습니다');
     } finally {
       setIsLoading(false);
     }
-  }, [selectedDate]);
+  }, [isCacheValid]);
 
-  const debouncedFetchReservations = useMemo(
-    () => debounce(fetchReservations, 300),
-    [fetchReservations]
-  );
+  // 캐시 무효화 및 데이터 갱신
+  const invalidateCache = useCallback(() => {
+    const currentMonth = format(selectedDate, 'yyyy-MM');
+    cache.current.timestamp[currentMonth] = 0;
+    fetchReservations(selectedDate, true); // 강제 갱신
+  }, [selectedDate, fetchReservations]);
 
+  // 월 변경 시에만 API 호출
   useEffect(() => {
-    debouncedFetchReservations();
+    const currentMonth = format(selectedDate, 'yyyy-MM');
+    const currentCache = cache.current;
+    
+    if (!isCacheValid(currentMonth)) {
+      fetchReservations(selectedDate);
+    }
+    
     return () => {
-      debouncedFetchReservations.cancel();
+      const now = Date.now();
+      Object.keys(currentCache.timestamp).forEach(key => {
+        if (now - currentCache.timestamp[key] > CACHE_DURATION) {
+          delete currentCache.data[key];
+          delete currentCache.timestamp[key];
+        }
+      });
     };
-  }, [debouncedFetchReservations]);
+  }, [selectedDate, fetchReservations, isCacheValid]);
 
   // 날짜별 이벤트 그룹화 함수 메모이제이션
   const getEventsForDate = useCallback((date) => {
@@ -155,17 +199,16 @@ export const ReservationCalendarPage = () => {
           setIsLoading(true);
           await reservationService.deleteReservation(reservationId);
           message.success('예약이 성공적으로 삭제되었습니다.');
-          await debouncedFetchReservations();
+          invalidateCache();
         } catch (error) {
           console.error('예약 삭제 오류:', error);
-          const errorMessage = error.response?.data?.detail || error.message || '알 수 없는 오류가 발생했습니다';
-          message.error(`예약 삭제에 실패했습니다: ${errorMessage}`);
+          message.error(error.response?.data?.detail || error.message || '예약 삭제에 실패했습니다');
         } finally {
           setIsLoading(false);
         }
       }
     });
-  }, [debouncedFetchReservations]);
+  }, [invalidateCache]);
 
   // 달력 컴포넌트 메모이제이션
   const components = useMemo(() => ({
@@ -220,6 +263,12 @@ export const ReservationCalendarPage = () => {
       if (!isValid(prevDate)) return new Date();
       return addHours(prevDate, direction * 24 * 30); // 약 한 달
     });
+  }, []);
+
+  // 모달 닫기 핸들러
+  const handleModalClose = useCallback(() => {
+    setEditModalVisible(false);
+    setSelectedReservation(null);
   }, []);
 
   return (
@@ -336,13 +385,10 @@ export const ReservationCalendarPage = () => {
 
       <ReservationFormModal
         visible={editModalVisible}
-        onCancel={() => {
-          setEditModalVisible(false);
-          setSelectedReservation(null);
-        }}
+        onCancel={handleModalClose}
         reservationId={selectedReservation?.id}
         reservation={selectedReservation}
-        onSuccess={debouncedFetchReservations}
+        onSuccess={invalidateCache}
       />
     </div>
   );

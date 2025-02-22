@@ -1,6 +1,5 @@
-import React, { useEffect, useState, useCallback, useReducer } from 'react';
+import React, { useEffect, useCallback, useReducer } from 'react';
 import { Modal, Form, Input, Select, DatePicker, InputNumber, Button, message } from 'antd';
-import { memorialRoomService } from '../../../services/memorialRoomService';
 import { reservationService } from '../../../services/reservationService';
 import { PET_SPECIES } from '../../../constants/reservation';
 import dayjs from 'dayjs';
@@ -10,7 +9,6 @@ const ACTIONS = {
   SET_SELECTED_DATE: 'SET_SELECTED_DATE',
   SET_SELECTED_TIME: 'SET_SELECTED_TIME',
   SET_TIME_SLOTS: 'SET_TIME_SLOTS',
-  SET_OPERATING_HOURS: 'SET_OPERATING_HOURS',
   RESET_RESERVATION_STATE: 'RESET_RESERVATION_STATE',
   SET_AVAILABILITY_DATA: 'SET_AVAILABILITY_DATA',
   SET_ERROR: 'SET_ERROR',
@@ -22,10 +20,8 @@ const initialState = {
   selectedDate: dayjs(),
   selectedTime: null,
   timeSlots: [],
-  operatingHours: null,
   error: null,
   loadingStates: {
-    isFetchingRooms: false,
     isCheckingAvailability: false,
     isSubmitting: false
   }
@@ -40,14 +36,11 @@ const reservationReducer = (state, action) => {
       return { ...state, selectedTime: action.payload };
     case ACTIONS.SET_TIME_SLOTS:
       return { ...state, timeSlots: action.payload };
-    case ACTIONS.SET_OPERATING_HOURS:
-      return { ...state, operatingHours: action.payload };
     case ACTIONS.RESET_RESERVATION_STATE:
       return initialState;
     case ACTIONS.SET_AVAILABILITY_DATA:
       return {
         ...state,
-        operatingHours: action.payload.operating_hours,
         timeSlots: action.payload.time_slots,
         selectedTime: action.payload.selected_time || state.selectedTime,
         error: null
@@ -66,7 +59,6 @@ const reservationReducer = (state, action) => {
 
 export const QuickReservationModal = ({ visible, onCancel, onSuccess }) => {
   const [form] = Form.useForm();
-  const [memorialRooms, setMemorialRooms] = useState([]);
   const [reservationState, dispatch] = useReducer(reservationReducer, initialState);
 
   // 에러 메시지 표시 컴포넌트
@@ -84,35 +76,10 @@ export const QuickReservationModal = ({ visible, onCancel, onSuccess }) => {
     );
   };
 
-  // 추모실 목록 조회 함수 메모이제이션
-  const fetchMemorialRooms = useCallback(async () => {
-    try {
-      dispatch({ 
-        type: ACTIONS.SET_LOADING_STATE, 
-        payload: { isFetchingRooms: true } 
-      });
-      dispatch({ type: ACTIONS.SET_ERROR, payload: null });
-
-      const response = await memorialRoomService.getRooms();
-      setMemorialRooms(response.results || []);
-    } catch (error) {
-      console.error('추모실 목록 조회 오류:', error);
-      const errorMessage = error.response?.data?.detail || '추모실 목록을 불러오는데 실패했습니다.';
-      dispatch({ type: ACTIONS.SET_ERROR, payload: errorMessage });
-      message.error(errorMessage);
-    } finally {
-      dispatch({ 
-        type: ACTIONS.SET_LOADING_STATE, 
-        payload: { isFetchingRooms: false } 
-      });
-    }
-  }, []);
-
   // 상태 초기화 함수
   const resetFormAndState = useCallback(() => {
     form.resetFields();
     dispatch({ type: ACTIONS.RESET_RESERVATION_STATE });
-    setMemorialRooms([]);
   }, [form]);
 
   // 초기 데이터 로드 함수
@@ -121,14 +88,13 @@ export const QuickReservationModal = ({ visible, onCancel, onSuccess }) => {
       const today = dayjs();
       dispatch({ type: ACTIONS.SET_SELECTED_DATE, payload: today });
       form.setFieldsValue({ date: today });
-      await fetchMemorialRooms();
     } catch (error) {
       console.error('초기 데이터 로드 오류:', error);
       const errorMessage = error.response?.data?.detail || '초기 데이터를 불러오는데 실패했습니다.';
       dispatch({ type: ACTIONS.SET_ERROR, payload: errorMessage });
       message.error(errorMessage);
     }
-  }, [form, fetchMemorialRooms]);
+  }, [form]);
 
   // 모달 상태 변경 처리
   useEffect(() => {
@@ -140,8 +106,8 @@ export const QuickReservationModal = ({ visible, onCancel, onSuccess }) => {
   }, [visible, initializeFormData, resetFormAndState]);
 
   // 예약 가능 시간 조회
-  const checkAvailability = async (date, memorialRoomId) => {
-    if (!date || !memorialRoomId) return;
+  const checkAvailability = async (date) => {
+    if (!date) return;
 
     try {
       dispatch({ 
@@ -150,38 +116,19 @@ export const QuickReservationModal = ({ visible, onCancel, onSuccess }) => {
       });
       dispatch({ type: ACTIONS.SET_ERROR, payload: null });
 
-      const params = {
-        date: date.format('YYYY-MM-DD'),
-        memorial_room_id: memorialRoomId,
-        selected_time: reservationState.selectedTime
-      };
-
-      const response = await reservationService.getAvailableTimes(params);
+      const response = await reservationService.checkAvailability({
+        scheduled_at: date.toISOString(),
+        duration_hours: 2
+      });
       
-      if (response.data) {
-        dispatch({
-          type: ACTIONS.SET_AVAILABILITY_DATA,
-          payload: response.data
+      if (response.is_valid) {
+        form.setFieldsValue({
+          scheduled_at: date
         });
-        
-        if (response.data.selected_time) {
-          form.setFieldsValue({
-            scheduled_at: dayjs(date.format('YYYY-MM-DD') + ' ' + response.data.selected_time)
-          });
-        }
       }
     } catch (error) {
       console.error('예약 가능 시간 조회 오류:', error);
-      let errorMessage = '예약 가능 시간을 불러오는데 실패했습니다.';
-      
-      if (error.response?.data?.code === 'DATE_REQUIRED') {
-        errorMessage = '날짜를 지정해주세요.';
-      } else if (error.response?.data?.code === 'PAST_DATE') {
-        errorMessage = '과거 날짜는 조회할 수 없습니다.';
-      } else if (error.response?.data?.detail) {
-        errorMessage = error.response.data.detail;
-      }
-
+      let errorMessage = error.response?.data?.error || '예약 가능 시간을 불러오는데 실패했습니다.';
       dispatch({ type: ACTIONS.SET_ERROR, payload: errorMessage });
       message.error(errorMessage);
     } finally {
@@ -197,9 +144,8 @@ export const QuickReservationModal = ({ visible, onCancel, onSuccess }) => {
     dispatch({ type: ACTIONS.SET_SELECTED_DATE, payload: date });
     dispatch({ type: ACTIONS.SET_SELECTED_TIME, payload: null });
     form.setFieldsValue({ scheduled_at: null });
-    const memorialRoomId = form.getFieldValue('memorial_room_id');
-    if (memorialRoomId) {
-      checkAvailability(date, memorialRoomId);
+    if (date) {
+      checkAvailability(date);
     }
   };
 
@@ -212,7 +158,6 @@ export const QuickReservationModal = ({ visible, onCancel, onSuccess }) => {
           <p><strong>예약 정보를 확인해주세요</strong></p>
           <div className="bg-gray-50 p-3 rounded-md space-y-1 text-sm">
             <p>• 예약일시: {values.scheduled_at.format('YYYY-MM-DD HH:mm')}</p>
-            <p>• 추모실: {memorialRooms.find(room => room.id === values.memorial_room_id)?.name}</p>
             <p>• 보호자명: {values.customer_name}</p>
             <p>• 연락처: {values.customer_phone}</p>
             <p>• 반려동물: {values.pet_name} ({values.pet_species || '종 미지정'})</p>
@@ -235,7 +180,6 @@ export const QuickReservationModal = ({ visible, onCancel, onSuccess }) => {
 
           const formData = {
             scheduled_at: values.scheduled_at.toISOString(),
-            memorial_room_id: values.memorial_room_id,
             customer: {
               name: values.customer_name,
               phone: values.customer_phone,
@@ -256,7 +200,7 @@ export const QuickReservationModal = ({ visible, onCancel, onSuccess }) => {
           onCancel?.();
         } catch (error) {
           console.error('예약 등록 오류:', error);
-          const errorMessage = error.response?.data?.detail || '예약 등록에 실패했습니다.';
+          const errorMessage = error.response?.data?.error || '예약 등록에 실패했습니다.';
           dispatch({ type: ACTIONS.SET_ERROR, payload: errorMessage });
           message.error(errorMessage);
         } finally {
@@ -277,51 +221,45 @@ export const QuickReservationModal = ({ visible, onCancel, onSuccess }) => {
 
   // 시간 선택 버튼 생성
   const renderTimeButtons = () => {
-    if (!reservationState.operatingHours) return null;
-
     const buttons = [];
     const now = dayjs();
-    const isToday = reservationState.selectedDate.format('YYYY-MM-DD') === now.format('YYYY-MM-DD');
+    const isToday = reservationState.selectedDate?.format('YYYY-MM-DD') === now.format('YYYY-MM-DD');
     const currentHour = now.hour();
     const currentMinute = now.minute();
 
-    reservationState.timeSlots.forEach((slot) => {
-      const [hour, minute] = slot.start_time.split(':').map(Number);
-      const timeString = slot.start_time;
-      
-      const isPastTime = isToday && (hour < currentHour || (hour === currentHour && minute <= currentMinute));
-      const isDisabled = !slot.is_selectable || isPastTime || slot.status !== 'available' || slot.blocking_reservation;
-      
-      let buttonStyle = '';
-      if (slot.is_in_selected_block) {
-        buttonStyle = '!bg-blue-100 !border-blue-300 !text-blue-800';
-      } else if (isDisabled) {
-        buttonStyle = '!bg-gray-50 !border-gray-100 !text-gray-300';
+    // 9시부터 22시까지 30분 단위로 시간 생성
+    for (let hour = 9; hour <= 22; hour++) {
+      for (let minute = 0; minute < 60; minute += 30) {
+        const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        const isPastTime = isToday && (hour < currentHour || (hour === currentHour && minute <= currentMinute));
+        
+        buttons.push(
+          <Button
+            key={timeString}
+            type={reservationState.selectedTime === timeString ? 'primary' : 'default'}
+            disabled={isPastTime}
+            onClick={() => {
+              dispatch({ type: ACTIONS.SET_SELECTED_TIME, payload: timeString });
+              const dateTime = reservationState.selectedDate
+                .hour(hour)
+                .minute(minute);
+              form.setFieldsValue({
+                scheduled_at: dateTime
+              });
+              checkAvailability(dateTime);
+            }}
+            className={`
+              w-full h-10
+              ${reservationState.selectedTime === timeString ? '!bg-blue-800 !border-blue-800 !text-white' : ''}
+              ${isPastTime ? '!bg-gray-50 !border-gray-100 !text-gray-300' : 'hover:!border-blue-800 hover:!text-blue-800'}
+              transition-colors duration-200
+            `}
+          >
+            {timeString}
+          </Button>
+        );
       }
-
-      buttons.push(
-        <Button
-          key={timeString}
-          type={reservationState.selectedTime === timeString ? 'primary' : 'default'}
-          disabled={isDisabled}
-          onClick={() => {
-            dispatch({ type: ACTIONS.SET_SELECTED_TIME, payload: timeString });
-            form.setFieldsValue({
-              scheduled_at: reservationState.selectedDate.hour(hour).minute(minute)
-            });
-            checkAvailability(reservationState.selectedDate, form.getFieldValue('memorial_room_id'));
-          }}
-          className={`
-            w-full h-10
-            ${reservationState.selectedTime === timeString ? '!bg-blue-800 !border-blue-800 !text-white' : buttonStyle}
-            ${!isDisabled ? 'hover:!border-blue-800 hover:!text-blue-800' : ''}
-            transition-colors duration-200
-          `}
-        >
-          {timeString}
-        </Button>
-      );
-    });
+    }
 
     return (
       <div className="w-full">
@@ -354,14 +292,11 @@ export const QuickReservationModal = ({ visible, onCancel, onSuccess }) => {
         {/* 예약 정보 섹션 */}
         <div className="bg-gray-50 p-4 rounded-lg relative">
           {/* 로딩 오버레이 */}
-          {(reservationState.loadingStates.isCheckingAvailability || 
-            reservationState.loadingStates.isFetchingRooms) && (
+          {reservationState.loadingStates.isCheckingAvailability && (
             <div className="absolute inset-0 bg-white/50 rounded-lg flex items-center justify-center z-10">
               <div className="flex flex-col items-center gap-2">
                 <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-800"></div>
-                <span className="text-sm text-gray-600">
-                  {reservationState.loadingStates.isCheckingAvailability ? '예약 가능 시간 확인 중...' : '추모실 정보 로딩 중...'}
-                </span>
+                <span className="text-sm text-gray-600">예약 가능 시간 확인 중...</span>
               </div>
             </div>
           )}
@@ -373,7 +308,7 @@ export const QuickReservationModal = ({ visible, onCancel, onSuccess }) => {
             예약 정보
           </h3>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-4">
             {/* 날짜 선택 */}
             <Form.Item
               name="date"
@@ -390,48 +325,33 @@ export const QuickReservationModal = ({ visible, onCancel, onSuccess }) => {
                 }}
               />
             </Form.Item>
+
+            {/* 시간 선택 */}
             <Form.Item
-              name="memorial_room_id"
-              label="추모실"
-              rules={[{ required: true, message: '추모실을 선택해주세요' }]}
+              name="scheduled_at"
+              label="예약시간"
+              rules={[{ required: true, message: '예약시간을 선택해주세요' }]}
             >
-              <Select onChange={(value) => {
-                if (reservationState.selectedDate) {
-                  checkAvailability(reservationState.selectedDate, value);
-                }
-              }}>
-                {memorialRooms.map(room => (
-                  <Select.Option key={room.id} value={room.id}>{room.name}</Select.Option>
-                ))}
-              </Select>
+              <div className="bg-white border border-gray-200 rounded-md p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-sm font-medium text-gray-700">
+                    {reservationState.selectedTime ? `선택된 시간: ${reservationState.selectedTime}` : '시간을 선택해주세요'}
+                  </span>
+                  <div className="flex items-center gap-4 text-xs text-gray-500">
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 bg-blue-800 rounded-sm"></span>
+                      선택됨
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 bg-gray-50 border border-gray-100 rounded-sm"></span>
+                      불가
+                    </span>
+                  </div>
+                </div>
+                {renderTimeButtons()}
+              </div>
             </Form.Item>
           </div>
-
-          {/* 시간 선택 그리드 */}
-          <Form.Item
-            name="scheduled_at"
-            label="예약시간"
-            rules={[{ required: true, message: '예약시간을 선택해주세요' }]}
-          >
-            <div className="bg-white border border-gray-200 rounded-md p-4">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-sm font-medium text-gray-700">
-                  {reservationState.selectedTime ? `선택된 시간: ${reservationState.selectedTime}` : '시간을 선택해주세요'}
-                </span>
-                <div className="flex items-center gap-4 text-xs text-gray-500">
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 bg-blue-100 border border-blue-300 rounded-sm"></span>
-                    선택됨
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 bg-gray-50 border border-gray-100 rounded-sm"></span>
-                    불가
-                  </span>
-                </div>
-              </div>
-              {renderTimeButtons()}
-            </div>
-          </Form.Item>
         </div>
 
         {/* 보호자 정보 섹션 */}

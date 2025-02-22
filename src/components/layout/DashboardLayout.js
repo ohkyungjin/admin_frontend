@@ -233,9 +233,13 @@ export const DashboardLayout = ({ children }) => {
     },
     { 
       name: '예약 관리', 
-      path: '/reservations/calendar', 
+      path: '', 
       icon: '📆',
-      minAuthLevel: 2
+      minAuthLevel: 2,
+      subItems: [
+        { name: '예약 캘린더', path: '/reservations/calendar', icon: '📅' },
+        { name: '예약 리스트', path: '/reservations', icon: '📋' },
+      ],
     },
     {
       name: '재고 관리',
