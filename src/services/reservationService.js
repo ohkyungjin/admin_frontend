@@ -89,5 +89,13 @@ export const reservationService = {
     } catch (error) {
       throw error;
     }
+  },
+
+  updatePaymentInfo: async (reservationId, paymentInfo) => {
+    const response = await axios.patch(
+      `/reservations/${reservationId}/update_payment_info/`,
+      paymentInfo
+    );
+    return response.data;
   }
 }; 

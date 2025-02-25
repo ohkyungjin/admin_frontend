@@ -5,14 +5,10 @@ export const PaymentInfoSection = ({
   form, 
   packages, 
   premiumLines, 
-  additionalOptions 
+  additionalOptions,
+  reservation
 }) => {
   const [, forceUpdate] = useState({});
-  // 체중에 따른 추가 금액 계산
-  const calculateWeightSurcharge = useCallback((weight) => {
-    if (!weight || weight <= 10) return 0;
-    return form.getFieldValue('weight_surcharge') || 0;
-  }, [form]);
 
   // 총 금액 계산 로직
   const calculateTotalAmount = useCallback(() => {
@@ -38,8 +34,7 @@ export const PaymentInfoSection = ({
     subtotal += additionalAmount;
 
     // 체중 추가 금액 계산
-    const weight = form.getFieldValue('pet_weight');
-    const weightSurcharge = calculateWeightSurcharge(weight);
+    const weightSurcharge = Number(values.weight_surcharge || 0);
     subtotal += weightSurcharge;
 
     // 2. 할인 적용
@@ -67,7 +62,8 @@ export const PaymentInfoSection = ({
         discount: discountAmount
       }
     };
-  }, [form, packages, premiumLines, additionalOptions, calculateWeightSurcharge]);
+  }, [form, packages, premiumLines, additionalOptions]);
+
 
   // 서비스 정보 변경 감지
   useEffect(() => {
@@ -77,6 +73,19 @@ export const PaymentInfoSection = ({
     });
     forceUpdate({});
   }, [calculateTotalAmount, form]);
+
+  // 초기 결제 정보 설정
+  useEffect(() => {
+    if (reservation) {
+      console.log(reservation);
+      form.setFieldsValue({
+        weight_surcharge: reservation.weight_surcharge ? Number(reservation.weight_surcharge) : undefined,
+        discount_type: reservation.discount_type || null,
+        discount_value: reservation.discount_value ? Number(reservation.discount_value) : undefined,
+        total_amount: reservation.total_amount ? Number(reservation.total_amount) : undefined
+      });
+    }
+  }, [reservation, form]);
 
   const renderDetails = () => {
     const result = calculateTotalAmount();
@@ -174,6 +183,7 @@ export const PaymentInfoSection = ({
     form.setFieldsValue({
       total_amount: result.total
     });
+
     forceUpdate({});
   }, [calculateTotalAmount, form]);
 

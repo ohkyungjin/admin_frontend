@@ -369,9 +369,9 @@ export const DashboardLayout = ({ children }) => {
           {/* Sidebar */}
           <div className={`fixed inset-y-0 left-0 transform ${
             isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          } bg-white w-64 transition-transform duration-300 ease-in-out z-20 shadow-lg pt-16 md:z-0`}>
-            <nav className="mt-5 px-2">
-              <div className="space-y-1">
+          } bg-white w-48 transition-transform duration-300 ease-in-out z-20 shadow-lg pt-16 md:z-0`}>
+            <nav className="mt-2 px-1">
+              <div className="space-y-0.5">
                 {menuItems.map((item) => (
                   <div key={item.name}>
                     {item.subItems ? (
@@ -383,20 +383,20 @@ export const DashboardLayout = ({ children }) => {
                             if (item.name === '장례 서비스') setIsFuneralOpen(!isFuneralOpen);
                             if (item.name === '예약 관리') setIsReservationOpen(!isReservationOpen);
                           }}
-                          className={`flex justify-between items-center w-full px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md ${
+                          className={`flex justify-between items-center w-full px-2 py-1 text-gray-800 hover:bg-gray-100 rounded-md text-xs font-semibold ${
                             (item.name === '재고 관리' && location.pathname.startsWith('/inventory')) ||
                             (item.name === '장례 서비스' && location.pathname.startsWith('/funeral')) ||
                             (item.name === '예약 관리' && location.pathname.startsWith('/reservations')) ||
                             (item.name === '추모 관리' && location.pathname.startsWith('/memorials'))
-                              ? 'bg-gray-100'
+                              ? 'bg-gray-100 font-bold text-blue-800'
                               : ''
                           }`}
                         >
                           <div className="flex items-center">
-                            <span className="mr-3">{item.icon}</span>
+                            <span className="mr-1.5 text-xs">{item.icon}</span>
                             <span>{item.name}</span>
                           </div>
-                          <span>
+                          <span className="text-[10px]">
                             {(item.name === '재고 관리' && isInventoryOpen) ||
                             (item.name === '장례 서비스' && isFuneralOpen) ||
                             (item.name === '예약 관리' && isReservationOpen)
@@ -407,18 +407,18 @@ export const DashboardLayout = ({ children }) => {
                         {((item.name === '재고 관리' && isInventoryOpen) ||
                           (item.name === '장례 서비스' && isFuneralOpen) ||
                           (item.name === '예약 관리' && isReservationOpen)) && (
-                          <div className="ml-8 space-y-1 mt-1">
+                          <div className="ml-4 space-y-0.5 mt-0.5">
                             {item.subItems.map((subItem) => (
                               <Button
                                 key={subItem.path}
                                 type="text"
                                 onClick={() => navigate(subItem.path)}
-                                className={`w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md ${
-                                  location.pathname === subItem.path ? 'bg-gray-100' : ''
+                                className={`w-full text-left px-2 py-1 text-[11px] text-gray-800 hover:bg-gray-100 rounded-md font-semibold ${
+                                  location.pathname === subItem.path ? 'bg-gray-100 font-bold text-blue-800' : ''
                                 }`}
                               >
                                 <div className="flex items-center">
-                                  <span className="mr-3">{subItem.icon}</span>
+                                  <span className="mr-1.5">{subItem.icon}</span>
                                   <span>{subItem.name}</span>
                                 </div>
                               </Button>
@@ -430,15 +430,15 @@ export const DashboardLayout = ({ children }) => {
                       <Button
                         type="text"
                         onClick={() => navigate(item.path)}
-                        className={`flex justify-between items-center w-full px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md ${
-                          location.pathname === item.path ? 'bg-gray-100' : ''
+                        className={`flex justify-between items-center w-full px-2 py-1 text-xs text-gray-800 hover:bg-gray-100 rounded-md font-semibold ${
+                          location.pathname === item.path ? 'bg-gray-100 font-bold text-blue-800' : ''
                         }`}
                       >
                         <div className="flex items-center">
-                          <span className="mr-3">{item.icon}</span>
+                          <span className="mr-1.5">{item.icon}</span>
                           <span>{item.name}</span>
                         </div>
-                        <span className="opacity-0">▲</span>
+                        <span className="opacity-0 text-[10px]">▲</span>
                       </Button>
                     )}
                   </div>
@@ -451,9 +451,9 @@ export const DashboardLayout = ({ children }) => {
 
       {/* Main Content */}
       <main className={`transition-all duration-300 ease-in-out ${
-        (userData?.auth_level || 0) > 1 ? (isSidebarOpen ? 'md:ml-64' : 'ml-0') : ''
+        (userData?.auth_level || 0) > 1 ? (isSidebarOpen ? 'md:ml-48' : 'ml-0') : ''
       } pt-16 bg-[#F8F9FA]`}>
-        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-full mx-auto px-2 sm:px-3 lg:px-4 py-3">
           {children}
         </div>
       </main>

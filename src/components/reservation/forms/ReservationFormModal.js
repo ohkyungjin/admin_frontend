@@ -107,6 +107,7 @@ export const ReservationFormModal = ({ visible, onCancel, reservationId, reserva
             packages={packages}
             premiumLines={premiumLines}
             additionalOptions={additionalOptions}
+            reservation={reservation}
           />
         </Form>
       </Spin>

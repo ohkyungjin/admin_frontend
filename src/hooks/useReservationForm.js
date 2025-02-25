@@ -108,13 +108,26 @@ export const useReservationForm = ({ form, reservationId, reservation, onSuccess
         premium_line_id: values.premium_line_id,
         additional_option_ids: values.additional_option_ids,
         assigned_staff_id: values.assigned_staff_id,
+        weight_surcharge: values.weight_surcharge,
+        discount_type: values.discount_type,
+        discount_value: values.discount_value,
+        total_amount: values.total_amount
       };
 
+      // 디버깅 로그 추가
+      console.group('예약 저장 데이터');
+      console.log('Form Values:', values);
+      console.log('FormData:', formData);
+      console.log('Reservation ID:', reservationId);
+      console.groupEnd();
+
       if (reservationId) {
-        await reservationService.updateReservation(reservationId, formData);
+        const response = await reservationService.updateReservation(reservationId, formData);
+        console.log('Update Response:', response);
         message.success('예약이 수정되었습니다.');
       } else {
-        await reservationService.createReservation(formData);
+        const response = await reservationService.createReservation(formData);
+        console.log('Create Response:', response);
         message.success('예약이 등록되었습니다.');
       }
       
@@ -122,6 +135,7 @@ export const useReservationForm = ({ form, reservationId, reservation, onSuccess
       onCancel();
     } catch (error) {
       console.error('예약 저장 오류:', error);
+      console.error('에러 상세:', error.response?.data);
       message.error(error.response?.data?.error || error.message || '예약 저장에 실패했습니다.');
     } finally {
       setLoading(false);
@@ -157,6 +171,10 @@ export const useReservationForm = ({ form, reservationId, reservation, onSuccess
         is_neutered: reservation.pet?.is_neutered,
         death_datetime: reservation.pet?.death_date ? dayjs(reservation.pet.death_date) : undefined,
         death_reason: reservation.pet?.death_reason,
+        weight_surcharge: reservation.weight_surcharge ? Number(reservation.weight_surcharge) : undefined,
+        discount_type: reservation.discount_type || null,
+        discount_value: reservation.discount_value ? Number(reservation.discount_value) : undefined,
+        total_amount: reservation.total_amount ? Number(reservation.total_amount) : undefined
       });
     } else {
       form.resetFields();
