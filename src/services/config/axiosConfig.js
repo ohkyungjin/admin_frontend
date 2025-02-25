@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-//export const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
+export const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
 //export const API_URL = process.env.REACT_APP_API_URL || 'http://192.168.0.7:8000/api/v1';
-export const API_URL = process.env.REACT_APP_API_URL || 'http://172.30.48.1:8000/api/v1';
+//export const API_URL = process.env.REACT_APP_API_URL || 'http://172.30.48.1:8000/api/v1';
 
 // axios 기본 설정
 axios.defaults.baseURL = API_URL;

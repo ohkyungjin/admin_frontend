@@ -5,6 +5,7 @@ import { CustomerInfoSection } from './sections/CustomerInfoSection';
 import { PetInfoSection } from './sections/PetInfoSection';
 import { ServiceInfoSection } from './sections/ServiceInfoSection';
 import { useReservationForm } from '../../../hooks/useReservationForm';
+import { PaymentInfoSection } from './sections/PaymentInfoSection';
 
 export const ReservationFormModal = ({ visible, onCancel, reservationId, reservation, onSuccess }) => {
   const [form] = Form.useForm();
@@ -98,6 +99,14 @@ export const ReservationFormModal = ({ visible, onCancel, reservationId, reserva
             premiumLines={premiumLines}
             additionalOptions={additionalOptions}
             staffs={staffs}
+          />
+
+          {/* PaymentInfoSection 추가 */}
+          <PaymentInfoSection 
+            form={form}
+            packages={packages}
+            premiumLines={premiumLines}
+            additionalOptions={additionalOptions}
           />
         </Form>
       </Spin>

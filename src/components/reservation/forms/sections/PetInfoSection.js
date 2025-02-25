@@ -6,6 +6,8 @@ import {
   DEATH_REASON_CHOICES 
 } from '../../../../constants/reservation';
 
+const { TextArea } = Input;
+
 export const PetInfoSection = () => {
   return (
     <div className="bg-gray-50 p-4 rounded-md">
@@ -88,6 +90,15 @@ export const PetInfoSection = () => {
               </Select.Option>
             ))}
           </Select>
+        </Form.Item>
+        
+
+        <Form.Item
+          name="memo"
+          label="메모"
+          className="col-span-2"
+        >
+          <TextArea rows={4} />
         </Form.Item>
       </div>
     </div>

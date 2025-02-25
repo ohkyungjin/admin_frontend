@@ -1,7 +1,5 @@
 import React from 'react';
-import { Form, Select, Input } from 'antd';
-
-const { TextArea } = Input;
+import { Form, Select } from 'antd';
 
 export const ServiceInfoSection = ({ packages, premiumLines, additionalOptions, staffs }) => {
   return (
@@ -59,14 +57,6 @@ export const ServiceInfoSection = ({ packages, premiumLines, additionalOptions, 
               <Select.Option key={staff.id} value={staff.id}>{staff.name}</Select.Option>
             ))}
           </Select>
-        </Form.Item>
-
-        <Form.Item
-          name="memo"
-          label="메모"
-          className="col-span-2"
-        >
-          <TextArea rows={4} />
         </Form.Item>
       </div>
     </div>
