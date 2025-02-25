@@ -50,11 +50,12 @@ export const FuneralCertificateModal = ({ visible, onCancel, reservation }) => {
   // 한글 폰트 로드
   useEffect(() => {
     const loadFont = async () => {
-      const font = await fetch('/fonts/NanumGothic-Regular.ttf');
-      const fontData = await font.arrayBuffer();
-      const pdf = new jsPDF();
-      pdf.addFileToVFS('NanumGothic-Regular.ttf', fontData);
-      pdf.addFont('NanumGothic-Regular.ttf', 'NanumGothic', 'normal');
+      try {
+        const pdf = new jsPDF();
+        pdf.setFont('helvetica'); // 기본 폰트 사용
+      } catch (error) {
+        console.error('PDF 폰트 설정 오류:', error);
+      }
     };
     loadFont();
   }, []);
