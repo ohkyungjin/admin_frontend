@@ -61,6 +61,32 @@ export const QuickReservationModal = ({ visible, onCancel, onSuccess }) => {
   const [form] = Form.useForm();
   const [reservationState, dispatch] = useReducer(reservationReducer, initialState);
 
+  // 예약 가능 시간 조회
+  const fetchAvailableTimes = useCallback(async (date) => {
+    try {
+      const response = await reservationService.getAvailableTimes({
+        date: date.format('YYYY-MM-DD')
+      });
+      
+      console.log('Available times response:', response.data);
+      
+      dispatch({ 
+        type: ACTIONS.SET_TIME_SLOTS, 
+        payload: response.data.available_times 
+      });
+    } catch (error) {
+      console.error('예약 가능 시간 조회 오류:', error);
+      message.error('예약 가능 시간을 불러오는데 실패했습니다.');
+    }
+  }, []);
+
+  // 모달이 열릴 때 시간 가져오기
+  useEffect(() => {
+    if (visible && form.getFieldValue('date')) {
+      fetchAvailableTimes(form.getFieldValue('date'));
+    }
+  }, [visible, form, fetchAvailableTimes]);
+
   // 에러 메시지 표시 컴포넌트
   const ErrorMessage = ({ error }) => {
     if (!error) return null;
@@ -88,13 +114,14 @@ export const QuickReservationModal = ({ visible, onCancel, onSuccess }) => {
       const today = dayjs();
       dispatch({ type: ACTIONS.SET_SELECTED_DATE, payload: today });
       form.setFieldsValue({ date: today });
+      await fetchAvailableTimes(today);
     } catch (error) {
       console.error('초기 데이터 로드 오류:', error);
       const errorMessage = error.response?.data?.detail || '초기 데이터를 불러오는데 실패했습니다.';
       dispatch({ type: ACTIONS.SET_ERROR, payload: errorMessage });
       message.error(errorMessage);
     }
-  }, [form]);
+  }, [form, fetchAvailableTimes]);
 
   // 모달 상태 변경 처리
   useEffect(() => {
@@ -105,47 +132,13 @@ export const QuickReservationModal = ({ visible, onCancel, onSuccess }) => {
     }
   }, [visible, initializeFormData, resetFormAndState]);
 
-  // 예약 가능 시간 조회
-  const checkAvailability = async (date) => {
-    if (!date) return;
-
-    try {
-      dispatch({ 
-        type: ACTIONS.SET_LOADING_STATE, 
-        payload: { isCheckingAvailability: true } 
-      });
-      dispatch({ type: ACTIONS.SET_ERROR, payload: null });
-
-      const response = await reservationService.checkAvailability({
-        scheduled_at: date.toISOString(),
-        duration_hours: 2
-      });
-      
-      if (response.is_valid) {
-        form.setFieldsValue({
-          scheduled_at: date
-        });
-      }
-    } catch (error) {
-      console.error('예약 가능 시간 조회 오류:', error);
-      let errorMessage = error.response?.data?.error || '예약 가능 시간을 불러오는데 실패했습니다.';
-      dispatch({ type: ACTIONS.SET_ERROR, payload: errorMessage });
-      message.error(errorMessage);
-    } finally {
-      dispatch({ 
-        type: ACTIONS.SET_LOADING_STATE, 
-        payload: { isCheckingAvailability: false } 
-      });
-    }
-  };
-
   // 날짜 선택 변경 시
   const handleDateChange = (date) => {
     dispatch({ type: ACTIONS.SET_SELECTED_DATE, payload: date });
     dispatch({ type: ACTIONS.SET_SELECTED_TIME, payload: null });
     form.setFieldsValue({ scheduled_at: null });
     if (date) {
-      checkAvailability(date);
+      fetchAvailableTimes(date);
     }
   };
 
@@ -221,50 +214,60 @@ export const QuickReservationModal = ({ visible, onCancel, onSuccess }) => {
 
   // 시간 선택 버튼 생성
   const renderTimeButtons = () => {
-    const buttons = [];
-    const now = dayjs();
-    const isToday = reservationState.selectedDate?.format('YYYY-MM-DD') === now.format('YYYY-MM-DD');
-    const currentHour = now.hour();
-    const currentMinute = now.minute();
-
-    // 9시부터 22시까지 30분 단위로 시간 생성
-    for (let hour = 9; hour <= 22; hour++) {
-      for (let minute = 0; minute < 60; minute += 30) {
-        const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-        const isPastTime = isToday && (hour < currentHour || (hour === currentHour && minute <= currentMinute));
-        
-        buttons.push(
-          <Button
-            key={timeString}
-            type={reservationState.selectedTime === timeString ? 'primary' : 'default'}
-            disabled={isPastTime}
-            onClick={() => {
-              dispatch({ type: ACTIONS.SET_SELECTED_TIME, payload: timeString });
-              const dateTime = reservationState.selectedDate
-                .hour(hour)
-                .minute(minute);
-              form.setFieldsValue({
-                scheduled_at: dateTime
-              });
-              checkAvailability(dateTime);
-            }}
-            className={`
-              w-full h-10
-              ${reservationState.selectedTime === timeString ? '!bg-blue-800 !border-blue-800 !text-white' : ''}
-              ${isPastTime ? '!bg-gray-50 !border-gray-100 !text-gray-300' : 'hover:!border-blue-800 hover:!text-blue-800'}
-              transition-colors duration-200
-            `}
-          >
-            {timeString}
-          </Button>
-        );
-      }
-    }
+    if (!reservationState.timeSlots) return null;
 
     return (
       <div className="w-full">
         <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
-          {buttons}
+          {reservationState.timeSlots.map(({ time, current_bookings, is_available }) => {
+            const isSelected = reservationState.selectedTime === time;
+            
+            return (
+              <Button
+                key={time}
+                type={isSelected ? 'primary' : 'default'}
+                disabled={!is_available || current_bookings >= 3}
+                onClick={() => {
+                  dispatch({ type: ACTIONS.SET_SELECTED_TIME, payload: time });
+                  const [hours, minutes] = time.split(':');
+                  const dateTime = reservationState.selectedDate
+                    .hour(parseInt(hours))
+                    .minute(parseInt(minutes));
+                  form.setFieldsValue({
+                    scheduled_at: dateTime
+                  });
+                }}
+                className={`
+                  relative w-full h-10
+                  ${isSelected ? '!bg-blue-800 !border-blue-800 !text-white' : ''}
+                  ${!is_available ? '!bg-gray-50 !border-gray-100 !text-gray-300' : 'hover:!border-blue-800 hover:!text-blue-800'}
+                  transition-colors duration-200
+                `}
+              >
+                {time}
+                {current_bookings > 0 && (
+                  <span className={`
+                    absolute -top-2 -right-2 
+                    min-w-[20px] h-5 
+                    flex items-center justify-center 
+                    px-1.5
+                    text-[11px] font-medium
+                    rounded-full
+                    ${isSelected 
+                      ? 'bg-blue-700 text-white' 
+                      : current_bookings >= 3 
+                        ? 'bg-red-500 text-white' 
+                        : 'bg-blue-100 text-blue-800'
+                    }
+                    border-2 border-white
+                    shadow-sm
+                  `}>
+                    {current_bookings}/3
+                  </span>
+                )}
+              </Button>
+            );
+          })}
         </div>
       </div>
     );

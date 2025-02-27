@@ -212,7 +212,7 @@ export const DashboardPage = () => {
       key: 'status',
       width: 120,
       render: (status, record) => (
-        status === 'completed' ? (
+        status === 'completed' || status === 'cancelled' ? (
           <Tag color={RESERVATION_STATUS_COLORS[status]} className="px-3 py-1">
             {RESERVATION_STATUS_LABELS[status]}
           </Tag>

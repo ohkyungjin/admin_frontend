@@ -44,7 +44,7 @@ export const reservationService = {
   // 예약 가능 시간 조회
   getAvailableTimes: async (params) => {
     try {
-      const response = await axios.get('/reservations/reservations/available-times/', { params });
+      const response = await axios.get('/reservations/available-times/', { params });
       return response.data;
     } catch (error) {
       if (error.response?.data?.error) {
